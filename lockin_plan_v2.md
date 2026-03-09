@@ -29,22 +29,22 @@ lockin/
 ├── pi/                          # Everything that runs on the Raspberry Pi
 │   ├── main.py                  # Entry point — starts all threads
 │   ├── config.py                # All tuneable constants (thresholds, URLs, flags)
-│   ├── detection/
-│   │   ├── camera.py            # F2: Pi Camera stream + YOLOv8n inference
-│   │   └── posture.py           # F3: MediaPipe head pose estimation
-│   ├── sensors/
-│   │   ├── ultrasonic.py        # F1: HC-SR04 desk presence
-│   │   └── light.py             # F4: ambient light for alert adaptation
-│   ├── feedback/
+│   ├── detection/  --  Rhys
+│   │   ├── camera.py            # F2: Pi Camera stream + YOLOv8n inference  
+│   │   └── posture.py           # F3: MediaPipe head pose estimation  
+│   ├── sensors/  --  Oliver
+│   │   ├── ultrasonic.py        # F1: HC-SR04 desk presence  
+│   │   └── light.py             # F4: ambient light for alert adaptation  
+│   ├── feedback/  --  Oliver
 │   │   ├── alerts.py            # F4: escalating LED/buzzer/motor logic
 │   │   └── display.py           # F5: LCD state machine + joystick navigation
-│   └── session/
+│   └── session/  --  Oliver
 │       ├── timer.py             # F5: Pomodoro state machine
 │       ├── streak.py            # F8: daily streak logic
 │       ├── events.py            # F8: structured event logger
 │       └── api_client.py        # F6/F8: HTTP POST to web server
 │
-├── server/                      # Web server (hosted on Cardiff OpenShift)
+├── server/  --  Rhys            # Web server (hosted on Cardiff OpenShift)
 │   ├── app.py                   # Flask application entry point
 │   ├── models.py                # SQLite database models (SQLAlchemy)
 │   ├── seed.py                  # One-off script to create users + generate API keys
