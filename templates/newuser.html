@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>NewUser</title>
+    <script>
+        function checkpassword(){
+            let p1 = document.getElementById("newpassword").value;
+            let p2 = document.getElementById("confirmpass").value;
+            let message = document.getElementById("msg");
+            if(p1==="" && p2 === ""){
+                message.innerHTML = "";
+                return;
+            }
+            if(p1 != p2){
+                message.innerHTML= "Passwords do not match";
+            }
+
+        }
+
+    </script>
+</head>
+<body>
+
+    <h1><b>Create new user:</b></h1>
+    <form>
+        <label><b>Create username:</b></label><br>
+        <input type="text" placeholder="Enter username" id="newusername" required>
+        <br>
+        <br>
+        <label><b>Create password:</b></label><br>
+        <input type="password" placeholder="Enter password" id="newpassword" onkeyup="checkpassword()" required><br>
+        <label><b>Confirm password:</b></label><br>
+        <input type="password" id="confirmpass" placeholder="Re-enter password" onkeyup="checkpassword()" required>
+        <br>
+        <span id="msg"></span>
+
+        <input type="submit" value="submit">
+    </form>
+
+
+</body>
+</html>
