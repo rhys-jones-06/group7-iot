@@ -29,7 +29,7 @@ lockin/
 ├── pi/                          # Everything that runs on the Raspberry Pi
 │   ├── main.py                  # Entry point — starts all threads
 │   ├── config.py                # All tuneable constants (thresholds, URLs, flags)
-│   ├── detection/  --  Rhys
+│   ├── detection/  --  Alexander
 │   │   ├── camera.py            # F2: Pi Camera stream + YOLOv8n inference  
 │   │   └── posture.py           # F3: MediaPipe head pose estimation  
 │   ├── sensors/  --  Oliver
