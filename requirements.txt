@@ -1,25 +1,13 @@
-
-
-# ===== Web Server (Flask) =====
-Flask==2.3.3
-Flask-SQLAlchemy==3.0.5
-Flask-Login==0.6.2
-Werkzeug==2.3.7
-
-
-# Camera & inference
-picamera2==0.3.12
-ultralytics==8.0.182
-mediapipe==0.10.7
-
-
-RPi.GPIO==0.7.0
-RPLCD==1.3.0
-
-
-requests==2.31.0
-
-
-# Uncomment as needed
-# pytest==7.4.2
-# python-dotenv==1.0.0
+# LockIn — Internet of Things Project
+# CM2211 Group 07
+#
+# Split into two files to handle platform-specific dependencies:
+#
+# Install on development machine (macOS, Windows, Linux):
+#   pip install -r requirements-server.txt
+#
+# Install on Raspberry Pi:
+#   pip install -r requirements-pi.txt
+#
+# Optional development:
+#   pip install pytest python-dotenv

@@ -1,0 +1,14 @@
+# LockIn Raspberry Pi Requirements
+# Hardware, camera, and AI inference dependencies (Linux/RPi only)
+
+# Camera & inference
+picamera2>=0.3.0
+ultralytics>=8.1.0
+mediapipe>=0.10.13
+
+# Hardware I/O
+RPi.GPIO==0.7.0
+RPLCD==1.3.0
+
+# Networking
+requests==2.31.0
