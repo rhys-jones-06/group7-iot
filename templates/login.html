@@ -1,37 +1,51 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSS Login Page Template - W3jar.Com</title>
+    <link href="https://fonts.googleapis.com/css2?family=Muli:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../static/login.css">
+    <style>
+        .srouce{
+            text-align: center;
+            color: #ffffff;
+            padding: 10px;
+        }
+    </style>
+</head>
 <body>
 
+    <div class="main-container">
+        <div class="form-container">
 
-<h1>
-    login page
-</h1>
+            <div class="srouce"><a title="Learn How to create Beautiful HTML & CSS login page template" href="https://www.w3jar.com/beautiful-html-css-login-page-template/">W3jar.Com</a></div>
 
-<form action="login.php" method="'post">
-    <div class="username">
-        <label for="uname"><b><Username></b></label>
-        <input type="text" placeholder="Enter Username"
-name="uname" required>
+            <div class="form-body">
+                <h2 class="title">Log in</h2>
 
-        <label for="psw"<b>Password</b></label>
-        <input type="password" placeholder="Enter password"
-name="psw" required>
+                <form action="" class="the-form">
 
-            <button type="submit">Login</button>
-            <label>
-                <input type="checkbox" checked="checked"
-        name="remember"> Remember me
-            </label>
+                    <label for="email">Email</label>
+                    <input type="email" name="email" id="email" placeholder="Enter your email">
 
-</div>
+                    <label for="password">Password</label>
+                    <input type="password" name="password" id="password" placeholder="Enter your password">
 
+                    <input type="submit" value="Log In">
 
-</form>
+                </form>
 
+            </div><!-- FORM BODY-->
+
+            <div class="form-footer">
+                <div>
+                    <span>Don't have an account?</span> <a href="">Sign Up</a>
+                </div>
+            </div><!-- FORM FOOTER -->
+
+        </div><!-- FORM CONTAINER -->
+    </div>
 
 </body>
-
-
-
 </html>
