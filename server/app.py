@@ -1,6 +1,5 @@
 """
 LockIn Web Server — Flask Application Entry Point
-CM2211 Group 07 — Internet of Things
 
 This module initializes the Flask app, configures the database,
 and registers all routes (auth, ingest, dashboard).
