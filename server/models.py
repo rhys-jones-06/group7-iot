@@ -50,7 +50,7 @@ class Session(db.Model):
         id: Primary key (auto-increment)
         user_id: Foreign key to User
         timestamp: ISO 8601 session end time
-        duration_mins: Actual focus time (may be < 25 if abandoned)
+        duration_mins: Actual focus time (may-be < 25 if abandoned)
         distraction_count: Total distractions in session
         focus_score: Normalized 0-100: duration / (distraction_count + 1)
         streak_days: Current streak at time of session completion
