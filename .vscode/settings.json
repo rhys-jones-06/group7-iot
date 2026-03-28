@@ -1,3 +1,16 @@
 {
-    "livePreview.defaultPreviewPath": "/templates/login.html"
+  "livePreview.defaultPreviewPath": "/templates/login.html",
+  "workbench.colorCustomizations": {
+    "commandCenter.border": "#e7e7e799",
+    "statusBar.background": "#677ba6",
+    "statusBar.foreground": "#e7e7e7",
+    "statusBarItem.hoverBackground": "#8797b9",
+    "statusBarItem.remoteBackground": "#677ba6",
+    "statusBarItem.remoteForeground": "#e7e7e7",
+    "titleBar.activeBackground": "#677ba6",
+    "titleBar.activeForeground": "#e7e7e7",
+    "titleBar.inactiveBackground": "#677ba699",
+    "titleBar.inactiveForeground": "#e7e7e799"
+},
+  "peacock.color": "#677ba6"
 }
