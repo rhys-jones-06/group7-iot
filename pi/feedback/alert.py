@@ -17,12 +17,18 @@
 
 import RPi.GPIO as GPIO
 import time
+import grovepi
+
+PIN_SERVO = 18
+# Can be any of 3, 5, 6, 9 - these are PWM-enabled pins and allow for volume control.
+PIN_BUZZER = 5
 
 GPIO.setmode(GPIO.BCM)
-SERVO_PIN = 18
-GPIO.setup(SERVO_PIN, GPIO.OUT)
+GPIO.setup(PIN_SERVO, GPIO.OUT)
 
-pwm = GPIO.PWM(SERVO_PIN, 50)
+grovepi.pinMode(PIN_BUZZER, "OUTPUT")
+
+pwm = GPIO.PWM(PIN_SERVO, 50)
 pwm.start(7.5)  # 7.5 duty cycle is about center position (90 degrees)
 
 
@@ -43,6 +49,10 @@ def vibrate(center: float = 90, amplitude: float = 3, cycles: int = 50) -> None:
 if __name__ == "__main__":
     try:
         while True:
+            # Value of 1/255 is much quieter
+            grovepi.analogWrite(PIN_BUZZER, 1)
+            time.sleep(0.5)
+            grovepi.analogWrite(PIN_BUZZER, 0)
             vibrate(center=90, amplitude=3, cycles=30)
     except KeyboardInterrupt:
         pass
