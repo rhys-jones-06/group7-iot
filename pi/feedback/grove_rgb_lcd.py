@@ -23,12 +23,12 @@ DISPLAY_TEXT_ADDR = 0x3e
 
 # set backlight to (R,G,B) (values from 0..255 for each)
 def setRGB(r,g,b):
-    bus.write_byte_data(DISPLAY_RGB_ADDR,0,0)
-    bus.write_byte_data(DISPLAY_RGB_ADDR,1,0)
+    bus.write_byte_data(DISPLAY_RGB_ADDR,0,0x07)
+    bus.write_byte_data(DISPLAY_RGB_ADDR,4, 0x15)
     bus.write_byte_data(DISPLAY_RGB_ADDR,0x08,0xaa)
-    bus.write_byte_data(DISPLAY_RGB_ADDR,6,r)
-    bus.write_byte_data(DISPLAY_RGB_ADDR,7,g)
-    bus.write_byte_data(DISPLAY_RGB_ADDR,8,b)
+    bus.write_byte_data(DISPLAY_RGB_ADDR,0x06,r)
+    bus.write_byte_data(DISPLAY_RGB_ADDR,0x07,g)
+    bus.write_byte_data(DISPLAY_RGB_ADDR,0x08,b)
 
 # send command to display (no need for external use)    
 def textCommand(cmd):
@@ -103,5 +103,3 @@ if __name__=="__main__":
         time.sleep(0.1)
     setRGB(0,255,0)
     setText("Bye bye, this should wrap onto next line")
-
-    
