@@ -2,20 +2,8 @@
 # LockIn — pi/main.py
 # CM2211 Group 07
 #
-# LOCAL-ONLY entry point. No network, no pip installs, no internet.
-# Runs phone detection (F2) and posture detection (F3) on the Pi.
-# Prints live status to the terminal.
-#
-# REQUIRES:
-#   - Raspberry Pi OS with picamera2, opencv, numpy (all pre-installed)
-#   - yolov8n.onnx file in this folder (copied via USB — see SETUP_GUIDE)
-#   - Pi Camera connected
-#
-# HOW TO RUN:
-#   cd ~/lockin/pi
-#   python3 main.py
-#
-# Press Ctrl+C to stop.
+# cd ~/lockin/files
+# python3 main.py
 # ===========================================================================
 
 import time
@@ -27,9 +15,6 @@ from detection.camera import start_phone_detection
 from detection.posture import start_posture_detection
 from config import LOG_LEVEL
 
-# ---------------------------------------------------------------------------
-# Logging
-# ---------------------------------------------------------------------------
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL, logging.INFO),
     format="%(asctime)s  %(message)s",
@@ -37,102 +22,58 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Shared state — every thread reads/writes through this dict
-# ---------------------------------------------------------------------------
 state_lock = threading.Lock()
 shared_state = {
-    # System
     "running": True,
-    "camera_enabled": True,
-
-    # F2 — camera.py
     "phone_detected": False,
     "phone_confidence": 0.0,
     "latest_frame": None,
-
-    # F3 — posture.py
-    "distracted_posture": False,
-    "face_detected": False,
-    "face_drop_pct": 0.0,
-
-    # Distraction timing (managed by main loop)
+    "person_head_y": None,
+    "posture_status": "starting",
+    "head_drop_pct": 0.0,
     "distraction_start": None,
     "distraction_seconds": 0.0,
 }
 
-# ---------------------------------------------------------------------------
-# Graceful shutdown
-# ---------------------------------------------------------------------------
+
 def _handle_shutdown(sig, frame):
-    logger.info("Shutting down...")
     with state_lock:
         shared_state["running"] = False
 
 signal.signal(signal.SIGINT, _handle_shutdown)
 signal.signal(signal.SIGTERM, _handle_shutdown)
 
-# ---------------------------------------------------------------------------
-# Status display
-# ---------------------------------------------------------------------------
-def _format_status(phone, conf, face, drop, distracted, dist_secs):
-    if phone:
-        phone_str = f"PHONE ({conf:.0%})"
-    else:
-        phone_str = "no phone"
 
-    if not face:
-        posture_str = "no face"
-    elif drop > 0.01:
-        posture_str = f"drop {drop:.0%}"
-    else:
-        posture_str = "ok"
-
-    if distracted:
-        dist_str = f"!! DISTRACTED {dist_secs:.0f}s !!"
-    else:
-        dist_str = "focused"
-
-    return f"  Phone: {phone_str:20s} | Head: {posture_str:12s} | {dist_str}"
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
 def main():
     print()
-    print("=" * 60)
-    print("  LockIn — Local Detection Mode (no internet needed)")
-    print("  F2: Phone detection (YOLOv8n via OpenCV)")
-    print("  F3: Head pose detection (Haar cascade)")
-    print("=" * 60)
-    print("  Hold a phone up to trigger F2.")
-    print("  Look down for 5s to trigger F3.")
-    print("  Press Ctrl+C to stop.")
-    print("=" * 60)
+    print("=" * 65)
+    print("  LockIn — Local Detection Mode")
+    print("  F2: Phone detection  |  F3: Posture detection")
+    print("=" * 65)
+    print("  1. Sit properly and wait ~8 seconds (posture calibration)")
+    print("  2. Hold a phone up to test F2")
+    print("  3. Slouch in your chair to test F3")
+    print("  Ctrl+C to stop.")
+    print("=" * 65)
     print()
 
-    # ---- Start threads ----
     camera_thread = threading.Thread(
         target=start_phone_detection,
         args=(shared_state, state_lock),
         daemon=True,
-        name="camera-F2",
     )
     posture_thread = threading.Thread(
         target=start_posture_detection,
         args=(shared_state, state_lock),
         daemon=True,
-        name="posture-F3",
     )
 
     logger.info("Starting camera thread (F2)...")
     camera_thread.start()
     time.sleep(2.0)
-
     logger.info("Starting posture thread (F3)...")
     posture_thread.start()
-
-    logger.info("All threads running. Entering main loop.\n")
+    logger.info("Running.\n")
 
     try:
         while True:
@@ -141,11 +82,11 @@ def main():
                     break
                 phone = shared_state["phone_detected"]
                 conf = shared_state["phone_confidence"]
-                face = shared_state["face_detected"]
-                drop = shared_state["face_drop_pct"]
+                posture = shared_state["posture_status"]
+                drop = shared_state["head_drop_pct"]
 
-            # Distracted if EITHER signal fires
-            is_distracted = phone or shared_state.get("distracted_posture", False)
+            # F2: Phone = distracted
+            is_distracted = phone
 
             if is_distracted:
                 if shared_state["distraction_start"] is None:
@@ -160,18 +101,38 @@ def main():
                     shared_state["distraction_seconds"] = 0.0
                 dist_secs = 0.0
 
-            # ---- WHERE ALERTS GO (F4) ----
-            # if is_distracted:
-            #     if dist_secs < 10:  alerts.flash_led()
-            #     elif dist_secs < 20: alerts.sound_buzzer()
-            #     else: alerts.vibrate_motor()
-            # else:
-            #     alerts.all_off()
+            # --- PHONE ---
+            if phone:
+                p = "PHONE ({:.0%})".format(conf)
+            else:
+                p = "no phone"
 
-            status = _format_status(phone, conf, face, drop, is_distracted, dist_secs)
-            print(f"\r{status}", end="", flush=True)
+            # --- POSTURE ---
+            if posture == "calibrating":
+                s = "calibrating..."
+            elif posture == "good":
+                if drop > 0.01:
+                    s = "GOOD (drop {:.0%})".format(drop)
+                else:
+                    s = "GOOD"
+            elif posture == "bad":
+                s = "SLOUCHING ({:.0%} drop)".format(drop)
+            elif posture == "no person":
+                s = "no person"
+            else:
+                s = posture
 
-            time.sleep(0.5)
+            # --- OVERALL ---
+            if is_distracted:
+                o = "!! DISTRACTED {:.0f}s !!".format(dist_secs)
+            elif posture == "bad":
+                o = "!! SIT UP — RETURN TO START POSITION !!"
+            else:
+                o = "focused"
+
+            print("  Phone: {:18s} | Posture: {:22s} | {}".format(p, s, o))
+
+            time.sleep(1.0)
 
     except KeyboardInterrupt:
         pass
@@ -179,11 +140,11 @@ def main():
     with state_lock:
         shared_state["running"] = False
 
-    print("\n")
-    logger.info("Waiting for threads to stop...")
+    print()
+    logger.info("Stopping...")
     camera_thread.join(timeout=5.0)
     posture_thread.join(timeout=5.0)
-    logger.info("Done. Goodbye!")
+    logger.info("Done.")
 
 
 if __name__ == "__main__":
