@@ -20,18 +20,24 @@
 
         }
 
+        function validateForm(event){
+            if(!checkpassword()){
+                event.preventDefault();
+            }
+        }
+
     </script>
 </head>
 <body>
 
     <h1><b>Create new user:</b></h1>
-    <form>
+    <form method="POST" action="/register" onsubmit="validateForm(event)">
         <label><b>Create username:</b></label><br>
-        <input type="text" placeholder="Enter username" id="newusername" required>
+        <input type="text" placeholder="Enter username" id="newusername" name="newusername" required>
         <br>
         <br>
         <label><b>Create password:</b></label><br>
-        <input type="password" placeholder="Enter password" id="newpassword" onkeyup="checkpassword()" required><br>
+        <input type="password" placeholder="Enter password" id="newpassword" name=""newpassword" onkeyup="checkpassword()" required><br>
         <label><b>Confirm password:</b></label><br>
         <input type="password" id="confirmpass" placeholder="Re-enter password" onkeyup="checkpassword()" required>
         <br>
