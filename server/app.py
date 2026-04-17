@@ -54,14 +54,12 @@ def create_app() -> Flask:
 
     login_manager.login_view = 'auth.login_page'
 
-    # Import models AFTER login_manager is initialized
-    from models import User  # noqa: F401
-
     # Register user_loader callback for Flask-Login
     @login_manager.user_loader
     def load_user(user_id: str):
         """Load user by ID from database."""
-        return User.query.get(int(user_id))
+        from models import User
+        return db.session.query(User).get(int(user_id))
 
     # Create database tables within app context
     with app.app_context():

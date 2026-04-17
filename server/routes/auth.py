@@ -8,12 +8,11 @@ Handles user login/logout via session cookies (flask-login).
 import logging
 import secrets
 from typing import Tuple, Union
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
 from flask_login import login_user, logout_user, current_user
 from sqlalchemy.exc import IntegrityError
 
 from app import db, limiter
-from models import User
 from validators import LoginSchema, validate_json_request
 
 auth_bp = Blueprint('auth', __name__)
@@ -29,6 +28,8 @@ def login_page() -> Union[str, Tuple[str, int]]:
     GET: Render login form (redirect to dashboard if already authenticated)
     POST: Authenticate user via username + password
     """
+    from models import User
+
     if current_user.is_authenticated:
         logger.debug(f"Authenticated user {current_user.id} redirected from login")
         return redirect(url_for('dashboard'))
@@ -78,6 +79,8 @@ def register_page() -> Union[str, Tuple[str, int]]:
     GET: Render registration form (redirect to dashboard if already authenticated)
     POST: Create new user account
     """
+    from models import User
+
     if current_user.is_authenticated:
         logger.debug(f"Authenticated user {current_user.id} redirected from register")
         return redirect(url_for('dashboard'))
