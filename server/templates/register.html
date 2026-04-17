@@ -364,6 +364,14 @@
                 {% endif %}
             {% endwith %}
 
+            {% with messages = get_flashed_messages(category_filter=['success']) %}
+                {% if messages %}
+                    <div style="background: #E8F5E9; color: #2E7D32; padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem; border-left: 4px solid #2E7D32; font-weight: 500;">
+                        {{ messages[0] }}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
             <form method="POST">
                 <div class="form-group">
                     <label for="username">Username</label>

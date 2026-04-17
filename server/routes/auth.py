@@ -6,6 +6,7 @@ Handles user login/logout via session cookies (flask-login).
 """
 
 import logging
+import secrets
 from typing import Tuple, Union
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_user, logout_user, current_user
@@ -107,8 +108,8 @@ def register_page() -> Union[str, Tuple[str, int]]:
                 flash('Username already taken. Choose a different one', 'error')
                 return render_template('register.html'), 200
 
-            # Create new user
-            new_user = User(username=username)
+            # Create new user with unique API key
+            new_user = User(username=username, api_key=secrets.token_hex(32))
             new_user.set_password(password)
 
             db.session.add(new_user)
