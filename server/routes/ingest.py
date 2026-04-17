@@ -6,14 +6,20 @@ Receives session data from Pi via POST /api/ingest/session (F6, F8).
 Authenticated with X-API-Key header.
 """
 
+import logging
+from typing import Optional, Dict, Any, Tuple
 from flask import Blueprint, request, jsonify
-from app import db
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+
+from app import db, limiter
 from models import User, Session, Distraction
+from validators import SessionIngestSchema, validate_json_request
 
 ingest_bp = Blueprint('ingest', __name__, url_prefix='/api')
+logger = logging.getLogger(__name__)
 
 
-def get_user_from_api_key():
+def get_user_from_api_key() -> Optional[User]:
     """
     Extract and validate API key from request header.
 
@@ -23,13 +29,19 @@ def get_user_from_api_key():
     api_key = request.headers.get('X-API-Key')
     if not api_key:
         return None
-    return User.query.filter_by(api_key=api_key).first()
+
+    try:
+        return User.query.filter_by(api_key=api_key).first()
+    except SQLAlchemyError as e:
+        logger.error(f"Database error during API key lookup: {e}")
+        return None
 
 
 @ingest_bp.route('/ingest/session', methods=['POST'])
-def ingest_session():
+@limiter.limit("100/hour")
+def ingest_session() -> Tuple[Dict[str, Any], int]:
     """
-    Receive a completed Pomodoro session from the Pi.
+    Receive a completed Pomodoro session from the Pi (F6, F8).
 
     Auth: X-API-Key header (Pi authentication)
 
@@ -51,73 +63,94 @@ def ingest_session():
             201 Created: {"session_id": <id>}
             400 Bad Request: {"error": "...", "detail": "..."}
             401 Unauthorized: {"error": "unauthorized", "detail": "Invalid API key"}
+            500 Internal Server Error: on database error
     """
     # Authenticate Pi via API key
     user = get_user_from_api_key()
     if not user:
+        logger.warning(f"Ingest request with invalid API key from {request.remote_addr}")
         return jsonify({
             'error': 'unauthorized',
             'detail': 'Invalid or missing API key'
         }), 401
 
-    # Validate request body
+    # Validate request body structure
     data = request.get_json()
     if not data:
+        logger.warning(f"Ingest request with invalid JSON from user {user.id}")
         return jsonify({
             'error': 'bad_request',
             'detail': 'Request body must be valid JSON'
         }), 400
 
-    # Check required fields
-    required_fields = ['timestamp', 'duration_mins', 'distraction_count', 'focus_score', 'streak_days']
-    for field in required_fields:
-        if field not in data:
-            return jsonify({
-                'error': 'missing_field',
-                'detail': f'{field} is required'
-            }), 400
+    # Validate against schema
+    schema = SessionIngestSchema()
+    validated, errors = validate_json_request(schema, data)
 
-    # Validate field types
-    try:
-        timestamp = str(data['timestamp'])
-        duration_mins = float(data['duration_mins'])
-        distraction_count = int(data['distraction_count'])
-        focus_score = float(data['focus_score'])
-        streak_days = int(data['streak_days'])
-    except (ValueError, TypeError) as e:
+    if errors:
+        logger.warning(f"Ingest validation failed for user {user.id}: {errors}")
         return jsonify({
-            'error': 'invalid_field',
-            'detail': f'Invalid field type: {str(e)}'
+            'error': 'validation_error',
+            'detail': errors
         }), 400
 
-    # Create session
-    session = Session(
-        user_id=user.id,
-        timestamp=timestamp,
-        duration_mins=duration_mins,
-        distraction_count=distraction_count,
-        focus_score=focus_score,
-        streak_days=streak_days
-    )
-    db.session.add(session)
-    db.session.flush()  # Get the session ID before committing
+    try:
+        # Create session (F6)
+        session = Session(
+            user_id=user.id,
+            timestamp=validated['timestamp'],
+            duration_mins=validated['duration_mins'],
+            distraction_count=validated['distraction_count'],
+            focus_score=validated['focus_score'],
+            streak_days=validated['streak_days']
+        )
+        db.session.add(session)
+        db.session.flush()  # Get the session ID before committing
 
-    # Add distraction records if present
-    if 'distractions' in data and isinstance(data['distractions'], list):
-        for distraction_data in data['distractions']:
+        # Add distraction records (F8)
+        distraction_count = 0
+        for distraction_data in validated.get('distractions', []):
             try:
                 distraction = Distraction(
                     session_id=session.id,
-                    timestamp=str(distraction_data.get('timestamp', '')),
-                    type=str(distraction_data.get('type', '')),
+                    timestamp=distraction_data['timestamp'],
+                    type=distraction_data['type'],
                     confidence=distraction_data.get('confidence')
                 )
-                if distraction.confidence is not None:
-                    distraction.confidence = float(distraction.confidence)
                 db.session.add(distraction)
-            except (ValueError, TypeError, KeyError):
-                pass  # Skip malformed distraction records
+                distraction_count += 1
+            except (ValueError, TypeError, KeyError) as e:
+                logger.warning(f"Skipped malformed distraction: {e}")
+                continue
 
-    db.session.commit()
+        db.session.commit()
+        logger.info(
+            f"Session {session.id} ingested for user {user.id} "
+            f"({validated['duration_mins']}min, {distraction_count} distractions)"
+        )
 
-    return jsonify({'session_id': session.id}), 201
+        return jsonify({'session_id': session.id}), 201
+
+    except IntegrityError as e:
+        db.session.rollback()
+        logger.error(f"Database integrity error during ingest: {e}")
+        return jsonify({
+            'error': 'database_error',
+            'detail': 'Failed to save session'
+        }), 500
+
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        logger.error(f"Database error during ingest: {e}")
+        return jsonify({
+            'error': 'database_error',
+            'detail': 'An unexpected database error occurred'
+        }), 500
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Unexpected error during ingest: {e}")
+        return jsonify({
+            'error': 'internal_error',
+            'detail': 'An unexpected error occurred'
+        }), 500
