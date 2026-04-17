@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import List, Optional
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-from app import db, login_manager
+from app import db
 
 
 class User(UserMixin, db.Model):
@@ -123,17 +123,3 @@ class Distraction(db.Model):
 
     def __repr__(self) -> str:
         return f'<Distraction {self.id} session={self.session_id} type={self.type}>'
-
-
-@login_manager.user_loader
-def load_user(user_id: str) -> Optional[User]:
-    """
-    Flask-Login callback to load a user by ID from the database.
-
-    Args:
-        user_id: User ID from session cookie
-
-    Returns:
-        User: User instance or None if not found
-    """
-    return User.query.get(int(user_id))
