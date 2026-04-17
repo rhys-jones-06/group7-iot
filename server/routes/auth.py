@@ -68,6 +68,69 @@ def login_page() -> Union[str, Tuple[str, int]]:
     return render_template('login.html')
 
 
+@auth_bp.route('/register', methods=['GET', 'POST'])
+@limiter.limit("5/minute")
+def register_page() -> Union[str, Tuple[str, int]]:
+    """
+    Registration page and form handler.
+
+    GET: Render registration form (redirect to dashboard if already authenticated)
+    POST: Create new user account
+    """
+    if current_user.is_authenticated:
+        logger.debug(f"Authenticated user {current_user.id} redirected from register")
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        confirm_password = request.form.get('confirm_password', '')
+
+        # Validate input
+        if not username or len(username) < 3:
+            flash('Username must be at least 3 characters', 'error')
+            return render_template('register.html'), 200
+
+        if not password or len(password) < 6:
+            flash('Password must be at least 6 characters', 'error')
+            return render_template('register.html'), 200
+
+        if password != confirm_password:
+            flash('Passwords do not match', 'error')
+            return render_template('register.html'), 200
+
+        try:
+            # Check if username already exists
+            existing_user = User.query.filter_by(username=username).first()
+            if existing_user:
+                logger.warning(f"Registration failed: username '{username}' already exists")
+                flash('Username already taken. Choose a different one', 'error')
+                return render_template('register.html'), 200
+
+            # Create new user
+            new_user = User(username=username)
+            new_user.set_password(password)
+
+            db.session.add(new_user)
+            db.session.commit()
+
+            logger.info(f"New user created: {new_user.id} ({username})")
+            flash('Account created successfully! Please log in.', 'success')
+            return redirect(url_for('auth.login_page'))
+        except IntegrityError:
+            db.session.rollback()
+            logger.error(f"IntegrityError during registration for username: {username}")
+            flash('An error occurred during registration. Please try again.', 'error')
+            return render_template('register.html'), 200
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error during registration: {e}")
+            flash('An error occurred during registration', 'error')
+            return render_template('register.html'), 200
+
+    return render_template('register.html')
+
+
 @auth_bp.route('/logout', methods=['POST'])
 def logout() -> Tuple[str, int]:
     """

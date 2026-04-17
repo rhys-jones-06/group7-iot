@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LockIn — Focus Training</title>
+    <title>LockIn — Create Account</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -54,7 +54,7 @@
             50% { transform: translate(30px, -30px); }
         }
 
-        .login-wrapper {
+        .register-wrapper {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 3rem;
@@ -106,15 +106,17 @@
             text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         }
 
-        .login-card {
+        .register-card {
             background: var(--white);
             border-radius: 20px;
             padding: 2.5rem;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             animation: slideInRight 0.8s ease-out;
+            max-height: 90vh;
+            overflow-y: auto;
         }
 
-        .login-card h1 {
+        .register-card h1 {
             font-family: 'Fredoka', sans-serif;
             font-size: 2rem;
             color: var(--dark);
@@ -122,7 +124,7 @@
             font-weight: 700;
         }
 
-        .login-card p {
+        .register-card p {
             color: #888;
             margin-bottom: 2rem;
             font-size: 0.95rem;
@@ -183,7 +185,7 @@
         .submit-btn {
             width: 100%;
             padding: 1rem;
-            background: linear-gradient(135deg, var(--primary) 0%, #FF8E8E 100%);
+            background: linear-gradient(135deg, var(--secondary) 0%, #1ABC9C 100%);
             color: white;
             border: none;
             border-radius: 12px;
@@ -194,12 +196,12 @@
             transition: all 0.3s ease;
             text-transform: uppercase;
             letter-spacing: 1px;
-            box-shadow: 0 8px 20px rgba(255, 107, 107, 0.3);
+            box-shadow: 0 8px 20px rgba(78, 205, 196, 0.3);
         }
 
         .submit-btn:hover {
             transform: translateY(-4px);
-            box-shadow: 0 12px 30px rgba(255, 107, 107, 0.4);
+            box-shadow: 0 12px 30px rgba(78, 205, 196, 0.4);
         }
 
         .submit-btn:active {
@@ -219,14 +221,14 @@
         }
 
         .auth-link a {
-            color: var(--primary);
+            color: var(--secondary);
             text-decoration: none;
             font-weight: 700;
             transition: all 0.3s ease;
         }
 
         .auth-link a:hover {
-            color: var(--secondary);
+            color: var(--primary);
             text-decoration: underline;
         }
 
@@ -267,7 +269,7 @@
         }
 
         @media (max-width: 768px) {
-            .login-wrapper {
+            .register-wrapper {
                 grid-template-columns: 1fr;
                 gap: 2rem;
             }
@@ -281,18 +283,18 @@
                 font-size: 1.8rem;
             }
 
-            .login-card {
+            .register-card {
                 padding: 2rem;
             }
 
-            .login-card h1 {
+            .register-card h1 {
                 font-size: 1.5rem;
             }
         }
     </style>
 </head>
 <body>
-    <div class="login-wrapper">
+    <div class="register-wrapper">
         <div class="mascot-section">
             <div class="mascot">
                 <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -346,13 +348,13 @@
             </div>
             <div class="mascot-text">
                 <h2>LockIn</h2>
-                <p>Meet Gator — grow stronger together</p>
+                <p>Join Gator's study squad today!</p>
             </div>
         </div>
 
-        <div class="login-card">
-            <h1>Ready to Study?</h1>
-            <p>Sign in and train with Gator to master your focus</p>
+        <div class="register-card">
+            <h1>Create Your Account</h1>
+            <p>Start your focus journey with Gator as your companion</p>
 
             {% with messages = get_flashed_messages(category_filter=['error']) %}
                 {% if messages %}
@@ -365,19 +367,24 @@
             <form method="POST">
                 <div class="form-group">
                     <label for="username">Username</label>
-                    <input type="text" id="username" name="username" placeholder="Enter your username" required autofocus>
+                    <input type="text" id="username" name="username" placeholder="Choose your username" required autofocus>
                 </div>
 
                 <div class="form-group">
                     <label for="password">Password</label>
-                    <input type="password" id="password" name="password" placeholder="Enter your password" required>
+                    <input type="password" id="password" name="password" placeholder="Create a strong password" required>
                 </div>
 
-                <button type="submit" class="submit-btn">Sign In & Begin</button>
+                <div class="form-group">
+                    <label for="confirm_password">Confirm Password</label>
+                    <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm your password" required>
+                </div>
+
+                <button type="submit" class="submit-btn">Create Account & Begin</button>
             </form>
 
             <div class="auth-link">
-                <p>Don't have an account? <a href="/register">Create one here</a></p>
+                <p>Already have an account? <a href="/login">Sign in here</a></p>
             </div>
         </div>
     </div>

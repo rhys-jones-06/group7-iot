@@ -14,7 +14,8 @@ let heatmapChart = null;
 // Pet system state
 const petSystem = {
     currentStreak: 0,
-    lastMilestoneStreak: 0
+    lastMilestoneStreak: 0,
+    petName: 'Gator'
 };
 
 /**
