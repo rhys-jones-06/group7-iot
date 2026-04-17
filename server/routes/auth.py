@@ -51,7 +51,7 @@ def login_page() -> Union[str, Tuple[str, int]]:
             return render_template('login.html'), 200
 
         try:
-            user = User.query.filter_by(username=validated['username']).first()
+            user = db.session.query(User).filter_by(username=validated['username']).first()
 
             if user is None or not user.check_password(validated['password']):
                 logger.warning(f"Failed login attempt for user: {validated['username']}")
@@ -62,7 +62,7 @@ def login_page() -> Union[str, Tuple[str, int]]:
             logger.info(f"User {user.id} ({user.username}) logged in")
             return redirect(url_for('dashboard'))
         except Exception as e:
-            logger.error(f"Error during login: {e}")
+            logger.error(f"Error during login: {str(e)}", exc_info=True)
             flash('An error occurred during login', 'error')
             return render_template('login.html'), 200
 
@@ -101,8 +101,8 @@ def register_page() -> Union[str, Tuple[str, int]]:
             return render_template('register.html'), 200
 
         try:
-            # Check if username already exists
-            existing_user = User.query.filter_by(username=username).first()
+            # Check if username already exists using db.session.query
+            existing_user = db.session.query(User).filter_by(username=username).first()
             if existing_user:
                 logger.warning(f"Registration failed: username '{username}' already exists")
                 flash('Username already taken. Choose a different one', 'error')
@@ -117,7 +117,7 @@ def register_page() -> Union[str, Tuple[str, int]]:
             db.session.flush()  # Flush to validate before commit
             db.session.commit()
 
-            logger.info(f"New user created: {username}")
+            logger.info(f"New user registered successfully: {username}")
             flash('Account created successfully! Please log in.', 'success')
             return redirect(url_for('auth.login_page'))
         except IntegrityError as e:
@@ -126,8 +126,11 @@ def register_page() -> Union[str, Tuple[str, int]]:
             flash('Username already in use. Please choose another.', 'error')
             return render_template('register.html'), 200
         except Exception as e:
-            db.session.rollback()
-            logger.error(f"Error during registration: {str(e)}", exc_info=True)
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            logger.error(f"Registration error for {username}: {str(e)}", exc_info=True)
             flash('Registration failed. Please try again.', 'error')
             return render_template('register.html'), 200
 

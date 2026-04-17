@@ -42,7 +42,7 @@ def get_sessions() -> Tuple[Dict[str, Any], int]:
         limit = min(max(limit, 1), 200)
         offset = max(offset, 0)
 
-        query = Session.query.filter_by(user_id=current_user.id).order_by(Session.timestamp.desc())
+        query = db.session.query(Session).filter_by(user_id=current_user.id).order_by(Session.timestamp.desc())
         total = query.count()
 
         sessions = query.limit(limit).offset(offset).all()
@@ -105,7 +105,7 @@ def get_summary() -> Tuple[Dict[str, Any], int]:
         ).scalar() or 0.0
 
         # Current streak (from most recent session)
-        latest_session = Session.query.filter_by(user_id=current_user.id).order_by(
+        latest_session = db.session.query(Session).filter_by(user_id=current_user.id).order_by(
             Session.timestamp.desc()
         ).first()
         current_streak = latest_session.streak_days if latest_session else 0

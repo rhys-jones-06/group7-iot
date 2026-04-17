@@ -31,7 +31,7 @@ def get_user_from_api_key() -> Optional[User]:
         return None
 
     try:
-        return User.query.filter_by(api_key=api_key).first()
+        return db.session.query(User).filter_by(api_key=api_key).first()
     except SQLAlchemyError as e:
         logger.error(f"Database error during API key lookup: {e}")
         return None
