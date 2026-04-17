@@ -130,6 +130,11 @@ def get_summary() -> Tuple[Dict[str, Any], int]:
                 (this_week_avg - last_week_avg) / last_week_avg * 100
             )
 
+        # Best focus score (all-time high)
+        best_focus = db.session.query(func.max(Session.focus_score)).filter(
+            Session.user_id == current_user.id
+        ).scalar() or 0.0
+
         logger.debug(f"Summary stats retrieved for user {current_user.id}")
 
         return jsonify({
@@ -138,7 +143,8 @@ def get_summary() -> Tuple[Dict[str, Any], int]:
             'total_focus_mins_today': float(today_mins),
             'avg_focus_score_this_week': round(float(this_week_avg), 1),
             'avg_focus_score_last_week': round(float(last_week_avg), 1),
-            'week_over_week_change_pct': round(week_over_week_change, 1)
+            'week_over_week_change_pct': round(week_over_week_change, 1),
+            'best_focus_score': round(float(best_focus), 1)
         }), 200
     except SQLAlchemyError as e:
         logger.error(f"Database error in get_summary: {e}")

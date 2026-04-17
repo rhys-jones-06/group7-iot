@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LockIn — Focus Companion</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/animations.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <style>
+        :root {
+            --primary: #FF6B6B;
+            --secondary: #4ECDC4;
+            --accent: #FFE66D;
+            --success: #95E77D;
+            --dark: #2C3E50;
+            --light: #F7F3FF;
+            --white: #FFFFFF;
+            --bg: #F5F1FF;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--dark);
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, var(--primary) 0%, #FF8E8E 100%);
+            color: var(--white);
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 8px 30px rgba(255, 107, 107, 0.2);
+        }
+
+        header h1 {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .user-greeting {
+            font-weight: 500;
+            opacity: 0.95;
+        }
+
+        .logout-btn {
+            background: rgba(255, 255, 255, 0.25);
+            color: var(--white);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            padding: 0.6rem 1.2rem;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 0.9rem;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.35);
+            transform: translateY(-2px);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        /* Pet Section */
+        .pet-section {
+            background: var(--white);
+            border-radius: 20px;
+            padding: 3rem 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+            text-align: center;
+            border: 2px solid rgba(78, 205, 196, 0.1);
+        }
+
+        .pet-section h2 {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            color: var(--dark);
+        }
+
+        .pet-container {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 3rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .pet-display {
+            position: relative;
+            width: 280px;
+            height: 280px;
+            background: linear-gradient(135deg, rgba(78, 205, 196, 0.1) 0%, rgba(255, 230, 109, 0.1) 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: petGlow 3s ease-in-out infinite;
+        }
+
+        @keyframes petGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(78, 205, 196, 0.2); }
+            50% { box-shadow: 0 0 40px rgba(78, 205, 196, 0.4); }
+        }
+
+        .pet-svg {
+            width: 220px;
+            height: 220px;
+            filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.1));
+        }
+
+        .pet-info {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .pet-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+
+        .stat-bar {
+            width: 100%;
+            max-width: 300px;
+        }
+
+        .stat-bar label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--dark);
+            font-size: 0.95rem;
+        }
+
+        .stat-bar-bg {
+            width: 100%;
+            height: 16px;
+            background: #E0E0E0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .stat-bar-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: white;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        .health-bar .stat-bar-fill {
+            background: linear-gradient(90deg, var(--success) 0%, #5FD97F 100%);
+        }
+
+        .happiness-bar .stat-bar-fill {
+            background: linear-gradient(90deg, var(--accent) 0%, #FFD966 100%);
+        }
+
+        .pet-name {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .pet-status {
+            font-size: 1.1rem;
+            color: var(--secondary);
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        /* Streak Section */
+        .streak-container {
+            background: linear-gradient(135deg, var(--primary) 0%, #FF8E8E 100%);
+            border-radius: 20px;
+            padding: 2rem;
+            color: var(--white);
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 40px rgba(255, 107, 107, 0.2);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .streak-display {
+            text-align: center;
+        }
+
+        .flame-icon {
+            font-size: 4rem;
+            animation: flicker 0.6s ease-in-out infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes flicker {
+            0%, 100% { opacity: 1; transform: scaleY(1); }
+            50% { opacity: 0.8; transform: scaleY(0.95); }
+        }
+
+        .streak-number {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin: 1rem 0;
+            text-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .streak-label {
+            font-size: 1.1rem;
+            opacity: 0.95;
+        }
+
+        .streak-message {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 1.5rem;
+            border-radius: 15px;
+            font-size: 1.05rem;
+            line-height: 1.6;
+            backdrop-filter: blur(10px);
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--white);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            border-top: 4px solid;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
+        }
+
+        .stat-card.blue {
+            border-top-color: var(--secondary);
+        }
+
+        .stat-card.red {
+            border-top-color: var(--primary);
+        }
+
+        .stat-card.yellow {
+            border-top-color: var(--accent);
+        }
+
+        .stat-card.green {
+            border-top-color: var(--success);
+        }
+
+        .stat-card h3 {
+            color: #888;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        .stat-card .value {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card .subtext {
+            font-size: 0.9rem;
+            color: #999;
+        }
+
+        /* Charts */
+        .chart-container {
+            background: var(--white);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+            margin-bottom: 2rem;
+        }
+
+        .chart-container h2 {
+            font-family: 'Fredoka', sans-serif;
+            margin-bottom: 1.5rem;
+            color: var(--dark);
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .insight {
+            background: linear-gradient(135deg, rgba(78, 205, 196, 0.15) 0%, rgba(255, 230, 109, 0.15) 100%);
+            border-left: 4px solid var(--secondary);
+            padding: 1.2rem;
+            border-radius: 10px;
+            margin-top: 1.5rem;
+            color: var(--dark);
+            font-weight: 500;
+            line-height: 1.6;
+        }
+
+        /* Confetti */
+        .confetti {
+            position: fixed;
+            pointer-events: none;
+            animation: confettiFall 3s ease-in forwards;
+        }
+
+        @keyframes confettiFall {
+            to {
+                transform: translateY(100vh) rotateZ(360deg);
+                opacity: 0;
+            }
+        }
+
+        /* Sessions Table */
+        .sessions-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .sessions-table th {
+            background: var(--light);
+            padding: 1.2rem;
+            text-align: left;
+            font-weight: 700;
+            color: var(--dark);
+            border-bottom: 2px solid #E0E0E0;
+        }
+
+        .sessions-table td {
+            padding: 1.2rem;
+            border-bottom: 1px solid #E0E0E0;
+        }
+
+        .sessions-table tr:hover {
+            background: var(--light);
+        }
+
+        .loading {
+            text-align: center;
+            color: #999;
+            padding: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .pet-container {
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+
+            .streak-container {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            header {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+
+            .header-right {
+                justify-content: center;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🔒 LockIn</h1>
+        <div class="header-right">
+            <span class="user-greeting">Welcome, {{ username }}! 👋</span>
+            <form method="POST" action="/logout" style="display: inline;">
+                <button class="logout-btn" type="submit">Sign Out</button>
+            </form>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Pet Section -->
+        <div class="pet-section">
+            <h2>Your Study Companion</h2>
+            <div class="pet-container">
+                <div class="pet-display">
+                    <svg class="pet-svg" id="pet-svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Body -->
+                        <circle cx="100" cy="120" r="50" fill="#FFD93D"/>
+                        <circle cx="100" cy="80" r="45" fill="#FFD93D"/>
+
+                        <!-- Eyes -->
+                        <circle cx="85" cy="70" r="8" fill="#2C3E50"/>
+                        <circle cx="115" cy="70" r="8" fill="#2C3E50"/>
+                        <circle cx="86" cy="68" r="3" fill="white"/>
+                        <circle cx="116" cy="68" r="3" fill="white"/>
+
+                        <!-- Mouth -->
+                        <path id="mouth" d="M 90 85 Q 100 92 110 85" stroke="#2C3E50" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+
+                        <!-- Arms -->
+                        <rect id="left-arm" x="50" y="110" width="15" height="50" rx="7" fill="#FFD93D" transform="rotate(-30 57 110)"/>
+                        <rect id="right-arm" x="135" y="110" width="15" height="50" rx="7" fill="#FFD93D" transform="rotate(30 142 110)"/>
+
+                        <!-- Legs -->
+                        <rect id="left-leg" x="85" y="165" width="12" height="35" rx="6" fill="#2C3E50"/>
+                        <rect id="right-leg" x="103" y="165" width="12" height="35" rx="6" fill="#2C3E50"/>
+
+                        <!-- Hearts (happiness indicator) -->
+                        <g id="hearts" opacity="0">
+                            <text x="70" y="40" font-size="20">💜</text>
+                            <text x="120" y="40" font-size="20">💜</text>
+                        </g>
+                    </svg>
+                </div>
+
+                <div class="pet-info">
+                    <div class="pet-name" id="pet-name">Spark</div>
+                    <div class="pet-status" id="pet-status">Energized & Ready</div>
+
+                    <div class="pet-stats">
+                        <div class="stat-bar health-bar">
+                            <label>Health</label>
+                            <div class="stat-bar-bg">
+                                <div class="stat-bar-fill" id="health-bar" style="width: 85%; --percent: 85%">85%</div>
+                            </div>
+                        </div>
+
+                        <div class="stat-bar happiness-bar">
+                            <label>Happiness</label>
+                            <div class="stat-bar-bg">
+                                <div class="stat-bar-fill" id="happiness-bar" style="width: 90%; --percent: 90%">90%</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Streak Section -->
+        <div class="streak-container">
+            <div class="streak-display">
+                <div class="flame-icon">🔥</div>
+                <div class="streak-number" id="streak-days">0</div>
+                <div class="streak-label">Day Streak</div>
+            </div>
+            <div class="streak-message" id="streak-message">
+                Keep your focus sharp and your companion alive! Complete a study session today to maintain your streak.
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card blue">
+                <h3>Sessions Today</h3>
+                <div class="value" id="sessions-today">—</div>
+                <div class="subtext">Pomodoro sessions</div>
+            </div>
+
+            <div class="stat-card red">
+                <h3>Focus Time Today</h3>
+                <div class="value" id="focus-mins-today">—</div>
+                <div class="subtext">minutes</div>
+            </div>
+
+            <div class="stat-card yellow">
+                <h3>This Week</h3>
+                <div class="value" id="focus-score-week">—</div>
+                <div class="subtext" id="week-comparison">avg focus score</div>
+            </div>
+
+            <div class="stat-card green">
+                <h3>Best Focus</h3>
+                <div class="value" id="best-focus">—</div>
+                <div class="subtext">all-time high</div>
+            </div>
+        </div>
+
+        <!-- Trend Chart -->
+        <div class="chart-container">
+            <h2>📈 Focus Score Trend (14 Days)</h2>
+            <canvas id="trendChart" height="80"></canvas>
+        </div>
+
+        <!-- Heatmap -->
+        <div class="chart-container">
+            <h2>🔥 Distraction Heatmap (by hour of day)</h2>
+            <canvas id="heatmapChart" height="80"></canvas>
+            <div class="insight" id="heatmap-insight">
+                Loading insight...
+            </div>
+        </div>
+
+        <!-- Recent Sessions -->
+        <div class="chart-container">
+            <h2>⏱️ Recent Sessions</h2>
+            <table class="sessions-table">
+                <thead>
+                    <tr>
+                        <th>Date & Time</th>
+                        <th>Duration</th>
+                        <th>Distractions</th>
+                        <th>Focus Score</th>
+                    </tr>
+                </thead>
+                <tbody id="sessions-tbody">
+                    <tr>
+                        <td colspan="4" class="loading">Loading sessions...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="/static/js/dashboard.js"></script>
+    <script>
+        // Pet behavior system
+        const petSystem = {
+            petName: 'Spark',
+            health: 85,
+            happiness: 90,
+            lastSessionDate: null,
+
+            init() {
+                this.loadState();
+                this.updatePetDisplay();
+                this.animatePet();
+            },
+
+            loadState() {
+                const saved = localStorage.getItem('petState');
+                if (saved) {
+                    const state = JSON.parse(saved);
+                    this.health = state.health || 85;
+                    this.happiness = state.happiness || 90;
+                }
+            },
+
+            saveState() {
+                localStorage.setItem('petState', JSON.stringify({
+                    health: this.health,
+                    happiness: this.happiness
+                }));
+            },
+
+            updatePetDisplay() {
+                document.getElementById('health-bar').style.width = this.health + '%';
+                document.getElementById('health-bar').textContent = this.health + '%';
+                document.getElementById('happiness-bar').style.width = this.happiness + '%';
+                document.getElementById('happiness-bar').textContent = this.happiness + '%';
+
+                const status = this.getPetStatus();
+                document.getElementById('pet-status').textContent = status;
+                document.getElementById('pet-name').textContent = this.petName;
+            },
+
+            getPetStatus() {
+                if (this.health > 75) return '😊 Energized & Ready';
+                if (this.health > 50) return '😐 Okay, needs some TLC';
+                if (this.health > 25) return '😞 Tired, missing you';
+                return '😢 Struggling without you';
+            },
+
+            animatePet() {
+                setInterval(() => {
+                    const animations = ['bounce', 'wiggle', 'spin'];
+                    const anim = animations[Math.floor(Math.random() * animations.length)];
+                    this.performAnimation(anim);
+                }, 5000);
+            },
+
+            performAnimation(type) {
+                const svg = document.getElementById('pet-svg');
+                if (!svg) return;
+
+                svg.style.animation = 'none';
+                setTimeout(() => {
+                    if (type === 'bounce') {
+                        svg.style.animation = 'petBounce 0.6s ease-in-out';
+                    } else if (type === 'wiggle') {
+                        svg.style.animation = 'petWiggle 0.6s ease-in-out';
+                    }
+                }, 10);
+            },
+
+            celebrateStreak() {
+                // Show hearts
+                const hearts = document.getElementById('hearts');
+                hearts.style.opacity = '1';
+                setTimeout(() => hearts.style.opacity = '0', 2000);
+
+                // Launch confetti
+                this.launchConfetti();
+            },
+
+            launchConfetti() {
+                const colors = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#95E77D'];
+                for (let i = 0; i < 50; i++) {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.innerHTML = ['🎉', '🎊', '✨', '⭐'][Math.floor(Math.random() * 4)];
+                    confetti.style.left = Math.random() * window.innerWidth + 'px';
+                    confetti.style.top = '-10px';
+                    confetti.style.fontSize = (Math.random() * 20 + 20) + 'px';
+                    confetti.style.opacity = '1';
+                    document.body.appendChild(confetti);
+
+                    setTimeout(() => confetti.remove(), 3000);
+                }
+            }
+        };
+
+        // Add animations to styles dynamically
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes petBounce {
+                0%, 100% { transform: translateY(0); }
+                50% { transform: translateY(-30px); }
+            }
+            @keyframes petWiggle {
+                0%, 100% { transform: rotateZ(0deg); }
+                25% { transform: rotateZ(-5deg); }
+                75% { transform: rotateZ(5deg); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Initialize pet system
+        document.addEventListener('DOMContentLoaded', () => {
+            petSystem.init();
+        });
+    </script>
+</body>
+</html>

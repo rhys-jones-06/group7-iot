@@ -21,6 +21,10 @@ class User(UserMixin, db.Model):
         username: Unique username
         password_hash: Hashed password (werkzeug.security)
         api_key: Unique key for Pi authentication (X-API-Key header)
+        streak_days: Current consecutive study session streak
+        last_session_date: Date of last completed session (for streak tracking)
+        pet_health: Virtual pet health (0-100)
+        pet_happiness: Virtual pet happiness (0-100)
     """
     __tablename__ = 'users'
 
@@ -28,6 +32,10 @@ class User(UserMixin, db.Model):
     username: str = db.Column(db.String(80), nullable=False, unique=True, index=True)
     password_hash: str = db.Column(db.String(255), nullable=False)
     api_key: str = db.Column(db.String(255), nullable=False, unique=True, index=True)
+    streak_days: int = db.Column(db.Integer, nullable=False, default=0)
+    last_session_date: datetime = db.Column(db.Date, nullable=True)
+    pet_health: float = db.Column(db.Float, nullable=False, default=85.0)
+    pet_happiness: float = db.Column(db.Float, nullable=False, default=90.0)
 
     # Relationships
     sessions = db.relationship(
