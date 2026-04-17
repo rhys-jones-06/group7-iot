@@ -112,21 +112,23 @@ def register_page() -> Union[str, Tuple[str, int]]:
             new_user = User(username=username, api_key=secrets.token_hex(32))
             new_user.set_password(password)
 
+            # Add and commit in transaction
             db.session.add(new_user)
+            db.session.flush()  # Flush to validate before commit
             db.session.commit()
 
-            logger.info(f"New user created: {new_user.id} ({username})")
+            logger.info(f"New user created: {username}")
             flash('Account created successfully! Please log in.', 'success')
             return redirect(url_for('auth.login_page'))
-        except IntegrityError:
+        except IntegrityError as e:
             db.session.rollback()
-            logger.error(f"IntegrityError during registration for username: {username}")
-            flash('An error occurred during registration. Please try again.', 'error')
+            logger.error(f"IntegrityError during registration for username: {username}: {str(e)}")
+            flash('Username already in use. Please choose another.', 'error')
             return render_template('register.html'), 200
         except Exception as e:
             db.session.rollback()
-            logger.error(f"Error during registration: {e}")
-            flash('An error occurred during registration', 'error')
+            logger.error(f"Error during registration: {str(e)}", exc_info=True)
+            flash('Registration failed. Please try again.', 'error')
             return render_template('register.html'), 200
 
     return render_template('register.html')
