@@ -13,10 +13,12 @@ import signal
 import logging
 import threading
 from types import FrameType
+from typing import Callable
 
 from detection.camera import start_phone_detection
 from detection.posture import start_posture_detection
 from config import LOG_LEVEL
+from pi.state import GlobalState
 
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL, logging.INFO),
@@ -27,29 +29,20 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 state_lock = threading.Lock()
-shared_state = {
-    "running": True,
-    "phone_detected": False,
-    "phone_confidence": 0.0,
-    "latest_frame": None,
-    "person_head_y": None,
-    "posture_status": "starting",
-    "head_drop_pct": 0.0,
-    "distraction_start": None,
-    "distraction_seconds": 0.0,
-}
 
 
 class MainRunner:
-    def __init__(self) -> None:
+    def __init__(self, state: GlobalState) -> None:
+        self.state: GlobalState = state
+
         self.camera_thread = threading.Thread(
             target=start_phone_detection,
-            args=(shared_state, state_lock),
+            args=(state, state_lock),
             daemon=True,
         )
         self.posture_thread = threading.Thread(
             target=start_posture_detection,
-            args=(shared_state, state_lock),
+            args=(state, state_lock),
             daemon=True,
         )
 
@@ -76,7 +69,7 @@ class MainRunner:
 
     def stop(self) -> None:
         with state_lock:
-            shared_state["running"] = False
+            self.state.running = False
         logger.info("Stopping...")
         self.camera_thread.join(timeout=5.0)
         self.posture_thread.join(timeout=5.0)
@@ -85,27 +78,27 @@ class MainRunner:
     def loop(self) -> None:
         while True:
             with state_lock:
-                if not shared_state["running"]:
+                if not self.state.running:
                     break
-                phone = shared_state["phone_detected"]
-                conf = shared_state["phone_confidence"]
-                posture = shared_state["posture_status"]
-                drop = shared_state["head_drop_pct"]
+                phone = self.state.phone_detected
+                conf = self.state.phone_confidence
+                posture = self.state.posture_status
+                drop = self.state.head_drop_pct
 
             # F2: Phone = distracted
             is_distracted = phone
 
             if is_distracted:
-                if shared_state["distraction_start"] is None:
+                if self.state.distraction_start is None:
                     with state_lock:
-                        shared_state["distraction_start"] = time.time()
+                        self.state.distraction_start = time.time()
                 with state_lock:
-                    dist_secs = time.time() - shared_state["distraction_start"]
-                    shared_state["distraction_seconds"] = dist_secs
+                    dist_secs = time.time() - self.state.distraction_start
+                    self.state.distraction_seconds = dist_secs
             else:
                 with state_lock:
-                    shared_state["distraction_start"] = None
-                    shared_state["distraction_seconds"] = 0.0
+                    self.state.distraction_start = None
+                    self.state.distraction_seconds = 0.0
                 dist_secs = 0.0
 
             # --- PHONE ---
@@ -141,16 +134,21 @@ class MainRunner:
 
             time.sleep(1.0)
 
-def _handle_shutdown(_sig: int, _frame: FrameType | None) -> None:
-    with state_lock:
-        shared_state["running"] = False
+
+def _handle_shutdown(state: GlobalState) -> Callable[[int, FrameType | None], None]:
+    def inner(_sig: int, _frame: FrameType | None) -> None:
+        with state_lock:
+            state.running = False
+
+    return inner
 
 
 def main():
-    signal.signal(signal.SIGINT, _handle_shutdown)
-    signal.signal(signal.SIGTERM, _handle_shutdown)
+    state = GlobalState()
+    signal.signal(signal.SIGINT, _handle_shutdown(state))
+    signal.signal(signal.SIGTERM, _handle_shutdown(state))
 
-    runner = MainRunner()
+    runner = MainRunner(state=state)
     runner.start()
 
     try:
@@ -159,7 +157,7 @@ def main():
         pass
 
     with state_lock:
-        shared_state["running"] = False
+        state.running = False
 
     runner.stop()
 

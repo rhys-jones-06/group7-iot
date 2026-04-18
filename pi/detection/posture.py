@@ -24,18 +24,18 @@
 
 import time
 import logging
-import threading
 
 from config import (
     POSTURE_ENABLED, FACE_DROP_THRESHOLD,
     POSTURE_SUSTAINED_S, FACE_BASELINE_FRAMES,
     CAMERA_FPS_CAP,
 )
+from pi.state import GlobalState
 
 logger = logging.getLogger(__name__)
 
 
-def start_posture_detection(shared_state, state_lock):
+def start_posture_detection(shared_state: GlobalState, state_lock):
     if not POSTURE_ENABLED:
         return
 
@@ -50,16 +50,16 @@ def start_posture_detection(shared_state, state_lock):
     try:
         while True:
             with state_lock:
-                if not shared_state.get("running", True):
+                if not shared_state.running:
                     break
-                head_y = shared_state.get("person_head_y")
+                head_y = shared_state.person_head_y
 
             if head_y is None:
                 # YOLO didn't detect a person — can't measure posture
                 slouching_since = None
                 with state_lock:
-                    shared_state["posture_status"] = "no person"
-                    shared_state["head_drop_pct"] = 0.0
+                    shared_state.posture_status = "no person"
+                    shared_state.head_drop_pct = 0.0
                 time.sleep(check_interval)
                 continue
 
@@ -80,8 +80,8 @@ def start_posture_detection(shared_state, state_lock):
                     )
 
                 with state_lock:
-                    shared_state["posture_status"] = "calibrating"
-                    shared_state["head_drop_pct"] = 0.0
+                    shared_state.posture_status = "calibrating"
+                    shared_state.head_drop_pct = 0.0
 
             # --- MONITORING PHASE ---
             else:
@@ -98,20 +98,20 @@ def start_posture_detection(shared_state, state_lock):
 
                     if duration >= POSTURE_SUSTAINED_S:
                         with state_lock:
-                            shared_state["posture_status"] = "bad"
-                            shared_state["head_drop_pct"] = drop
+                            shared_state.posture_status = "bad"
+                            shared_state.head_drop_pct = drop
                     else:
                         # Dropping but not long enough — might be brief
                         with state_lock:
-                            shared_state["posture_status"] = "good"
-                            shared_state["head_drop_pct"] = drop
+                            shared_state.posture_status = "good"
+                            shared_state.head_drop_pct = drop
 
                 else:
                     # Head at or above baseline — good posture
                     slouching_since = None
                     with state_lock:
-                        shared_state["posture_status"] = "good"
-                        shared_state["head_drop_pct"] = max(0.0, drop)
+                        shared_state.posture_status = "good"
+                        shared_state.head_drop_pct = max(0.0, drop)
 
             time.sleep(check_interval)
 

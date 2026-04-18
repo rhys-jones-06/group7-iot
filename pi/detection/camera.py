@@ -17,6 +17,7 @@ import logging
 import threading
 import cv2
 import numpy as np
+from pi.state import GlobalState
 
 try:
     from picamera2 import Picamera2
@@ -97,7 +98,7 @@ def _extract_detections(output, class_id, conf_threshold, ratio, pad_w, pad_h, f
     return results
 
 
-def start_phone_detection(shared_state, state_lock):
+def start_phone_detection(shared_state: GlobalState, state_lock) -> None:
     if not CAMERA_ENABLED or Picamera2 is None:
         return
     if not os.path.isfile(YOLO_ONNX_PATH):
@@ -119,7 +120,7 @@ def start_phone_detection(shared_state, state_lock):
     try:
         while True:
             with state_lock:
-                if not shared_state.get("running", True):
+                if not shared_state.running:
                     break
 
             loop_start = time.time()
@@ -160,10 +161,10 @@ def start_phone_detection(shared_state, state_lock):
 
             # --- UPDATE SHARED STATE ---
             with state_lock:
-                shared_state["phone_detected"] = phone_found
-                shared_state["phone_confidence"] = best_phone_conf
-                shared_state["person_head_y"] = person_head_y  # None if no person seen
-                shared_state["latest_frame"] = frame
+                shared_state.phone_detected = phone_found
+                shared_state.phone_confidence = best_phone_conf
+                shared_state.person_head_y = person_head_y  # None if no person seen
+                shared_state.latest_frame = frame
 
             elapsed = time.time() - loop_start
             sleep_time = frame_interval - elapsed
