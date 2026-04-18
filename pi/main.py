@@ -6,10 +6,13 @@
 # python3 main.py
 # ===========================================================================
 
+from __future__ import annotations
+
 import time
 import signal
 import logging
 import threading
+from types import FrameType
 
 from detection.camera import start_phone_detection
 from detection.posture import start_posture_detection
@@ -36,46 +39,49 @@ shared_state = {
 }
 
 
-def _handle_shutdown(sig, frame):
-    with state_lock:
-        shared_state["running"] = False
+class MainRunner:
+    def __init__(self) -> None:
+        self.camera_thread = threading.Thread(
+            target=start_phone_detection,
+            args=(shared_state, state_lock),
+            daemon=True,
+        )
+        self.posture_thread = threading.Thread(
+            target=start_posture_detection,
+            args=(shared_state, state_lock),
+            daemon=True,
+        )
 
-signal.signal(signal.SIGINT, _handle_shutdown)
-signal.signal(signal.SIGTERM, _handle_shutdown)
+    def splash_screen(self) -> None:
+        print()
+        print("=" * 65)
+        print("  LockIn — Local Detection Mode")
+        print("  F2: Phone detection  |  F3: Posture detection")
+        print("=" * 65)
+        print("  1. Sit properly and wait ~8 seconds (posture calibration)")
+        print("  2. Hold a phone up to test F2")
+        print("  3. Slouch in your chair to test F3")
+        print("  Ctrl+C to stop.")
+        print("=" * 65)
+        print()
 
+    def start(self) -> None:
+        logger.info("Starting camera thread (F2)...")
+        self.camera_thread.start()
+        time.sleep(2.0)
+        logger.info("Starting posture thread (F3)...")
+        self.posture_thread.start()
+        logger.info("Running.\n")
 
-def main():
-    print()
-    print("=" * 65)
-    print("  LockIn — Local Detection Mode")
-    print("  F2: Phone detection  |  F3: Posture detection")
-    print("=" * 65)
-    print("  1. Sit properly and wait ~8 seconds (posture calibration)")
-    print("  2. Hold a phone up to test F2")
-    print("  3. Slouch in your chair to test F3")
-    print("  Ctrl+C to stop.")
-    print("=" * 65)
-    print()
+    def stop(self) -> None:
+        with state_lock:
+            shared_state["running"] = False
+        logger.info("Stopping...")
+        self.camera_thread.join(timeout=5.0)
+        self.posture_thread.join(timeout=5.0)
+        logger.info("Done.")
 
-    camera_thread = threading.Thread(
-        target=start_phone_detection,
-        args=(shared_state, state_lock),
-        daemon=True,
-    )
-    posture_thread = threading.Thread(
-        target=start_posture_detection,
-        args=(shared_state, state_lock),
-        daemon=True,
-    )
-
-    logger.info("Starting camera thread (F2)...")
-    camera_thread.start()
-    time.sleep(2.0)
-    logger.info("Starting posture thread (F3)...")
-    posture_thread.start()
-    logger.info("Running.\n")
-
-    try:
+    def loop(self) -> None:
         while True:
             with state_lock:
                 if not shared_state["running"]:
@@ -134,17 +140,27 @@ def main():
 
             time.sleep(1.0)
 
+def _handle_shutdown(_sig: int, _frame: FrameType | None) -> None:
+    with state_lock:
+        shared_state["running"] = False
+
+
+def main():
+    signal.signal(signal.SIGINT, _handle_shutdown)
+    signal.signal(signal.SIGTERM, _handle_shutdown)
+
+    runner = MainRunner()
+    runner.start()
+
+    try:
+        runner.loop()
     except KeyboardInterrupt:
         pass
 
     with state_lock:
         shared_state["running"] = False
 
-    print()
-    logger.info("Stopping...")
-    camera_thread.join(timeout=5.0)
-    posture_thread.join(timeout=5.0)
-    logger.info("Done.")
+    runner.stop()
 
 
 if __name__ == "__main__":
