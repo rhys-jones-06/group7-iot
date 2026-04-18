@@ -20,7 +20,8 @@ from config import LOG_LEVEL
 
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL, logging.INFO),
-    format="%(asctime)s  %(message)s",
+    # include % name ALONGSIDE levelname in log fmt
+    format="%(asctime)s [%(name)s] %(levelname)s %(message)s",
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)

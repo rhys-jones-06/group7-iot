@@ -101,18 +101,18 @@ def start_phone_detection(shared_state, state_lock):
     if not CAMERA_ENABLED or Picamera2 is None:
         return
     if not os.path.isfile(YOLO_ONNX_PATH):
-        logger.error("[camera] Model file not found: %s", YOLO_ONNX_PATH)
+        logger.error("Model file not found: %s", YOLO_ONNX_PATH)
         return
 
-    logger.info("[camera] Loading YOLOv8n ONNX model...")
+    logger.info("Loading YOLOv8n ONNX model...")
     net = cv2.dnn.readNetFromONNX(YOLO_ONNX_PATH)
-    logger.info("[camera] Model loaded")
+    logger.info("Model loaded")
 
     camera = Picamera2()
     camera.configure(camera.create_video_configuration(main={"size": (640, 480)}))
     camera.start()
     _set_led(True)
-    logger.info("[camera] Camera started, LED ON")
+    logger.info("Camera started, LED ON")
 
     frame_interval = 1.0 / CAMERA_FPS_CAP
 
@@ -171,9 +171,9 @@ def start_phone_detection(shared_state, state_lock):
                 time.sleep(sleep_time)
 
     except Exception as exc:
-        logger.error("[camera] Error: %s", exc)
+        logger.error("Error: %s", exc)
     finally:
         camera.stop()
         camera.close()
         _set_led(False)
-        logger.info("[camera] Camera stopped, LED OFF")
+        logger.info("Camera stopped, LED OFF")

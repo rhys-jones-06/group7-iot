@@ -39,7 +39,7 @@ def start_posture_detection(shared_state, state_lock):
     if not POSTURE_ENABLED:
         return
 
-    logger.info("[posture] Using YOLO person detection for posture tracking")
+    logger.info("Using YOLO person detection for posture tracking")
 
     baseline_readings = []
     baseline_y = None
@@ -72,11 +72,11 @@ def start_posture_detection(shared_state, state_lock):
                 if len(baseline_readings) == FACE_BASELINE_FRAMES:
                     baseline_y = sum(baseline_readings) / len(baseline_readings)
                     logger.info(
-                        "[posture] Baseline calibrated: head top at %.1f%% of frame",
+                        "Baseline calibrated: head top at %.1f%% of frame",
                         baseline_y * 100
                     )
                     logger.info(
-                        "[posture] Sit like this = good posture. Slouching will be detected."
+                        "Sit like this = good posture. Slouching will be detected."
                     )
 
                 with state_lock:
@@ -116,6 +116,6 @@ def start_posture_detection(shared_state, state_lock):
             time.sleep(check_interval)
 
     except Exception as exc:
-        logger.error("[posture] Error: %s", exc)
+        logger.error("Error: %s", exc)
     finally:
-        logger.info("[posture] Stopped")
+        logger.info("Stopped")
