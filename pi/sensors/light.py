@@ -6,8 +6,8 @@ import threading
 import time
 import grovepi
 
-from pi.state import GlobalState
 from config import LIGHT_PIN, LIGHT_THRESHOLD
+from state import GlobalState
 
 logger = logging.getLogger(__name__)
 

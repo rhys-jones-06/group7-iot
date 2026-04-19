@@ -17,7 +17,8 @@ import logging
 import threading
 import cv2
 import numpy as np
-from pi.state import GlobalState
+
+from state import GlobalState
 
 try:
     from picamera2 import Picamera2
@@ -107,7 +108,7 @@ def _extract_detections(output, class_id, conf_threshold, ratio, pad_w, pad_h, f
     return results
 
 
-def start_phone_detection(shared_state: GlobalState, state_lock) -> None:
+def start_phone_detection(shared_state: GlobalState, state_lock: threading.Lock) -> None:
     if not CAMERA_ENABLED or Picamera2 is None:
         return
     if not os.path.isfile(YOLO_ONNX_PATH):

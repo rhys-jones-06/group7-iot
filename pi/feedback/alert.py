@@ -15,20 +15,24 @@
 # o o
 # o 3
 
-import RPi.GPIO as GPIO
+import logging
+import threading
 import time
+
+import RPi.GPIO as GPIO
 import grovepi
 
-PIN_SERVO = 18
-# Can be any of 3, 5, 6, 9 - these are PWM-enabled pins and allow for volume control.
-PIN_BUZZER = 5
+from config import BUZZER_PIN, LED_PIN, MOTOR_PIN
+from state import GlobalState
+
+logger = logging.getLogger(__name__)
 
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(PIN_SERVO, GPIO.OUT)
+GPIO.setup(MOTOR_PIN, GPIO.OUT)
 
-grovepi.pinMode(PIN_BUZZER, "OUTPUT")
+grovepi.pinMode(BUZZER_PIN, "OUTPUT")
 
-pwm = GPIO.PWM(PIN_SERVO, 50)
+pwm = GPIO.PWM(MOTOR_PIN, 50)
 pwm.start(7.5)  # 7.5 duty cycle is about center position (90 degrees)
 
 
@@ -47,16 +51,34 @@ def vibrate(center: float = 90, amplitude: float = 3, cycles: int = 50) -> None:
         set_angle(center - amplitude)
 
 
-if __name__ == "__main__":
-    try:
-        while True:
-            # Value of 1/255 is much quieter
-            grovepi.analogWrite(PIN_BUZZER, 1)
-            time.sleep(0.5)
-            grovepi.analogWrite(PIN_BUZZER, 0)
-            vibrate(center=90, amplitude=3, cycles=30)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        pwm.stop()
-        GPIO.cleanup()
+# level 1: 0–10s  - LED flash
+# level 2: 10–20s - Buzzer (skipped in low-light — LED only)
+# level 3: 20s+   - Motor vibration
+def start_alert_feedback(state: GlobalState, lock: threading.Lock) -> None:
+    grovepi.pinMode(LED_PIN, "OUTPUT")
+
+    while True:
+        with lock:
+            if not state.running:
+                break
+            low_light = state.low_light
+            phone_detected = state.phone_detected
+            posture_status = state.posture_status
+            distraction_seconds = state.distraction_seconds
+
+        if phone_detected or posture_status == "bad":
+            if distraction_seconds > 20:
+                # F4: level 3: motor vibration
+                vibrate()
+            elif distraction_seconds > 10:
+                # F4: level 2: buzzer (skipped in low-light — LED only)
+                if not low_light:
+                    grovepi.digitalWrite(BUZZER_PIN, 1)
+                    time.sleep(0.5)
+                    grovepi.digitalWrite(BUZZER_PIN, 0)
+            else:
+                # F4: level 1: LED flash
+                grovepi.digitalWrite(LED_PIN, 1)
+                time.sleep(0.5)
+                grovepi.digitalWrite(LED_PIN, 0)
+        time.sleep(0.5)

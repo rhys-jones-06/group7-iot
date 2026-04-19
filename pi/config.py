@@ -20,10 +20,10 @@ POSTURE_SUSTAINED_S = 5.0             # must stay dropped for 5 seconds
 FACE_BASELINE_FRAMES = 15             # calibration frames (~8 sec at 2fps)
 
 # F4 — Alerts
-LIGHT_PIN = 2  # Analogue pin, cannot conflict with joystick using 2 data pins (0, 1)
-BUZZER_PIN = 22
-MOTOR_PIN = 23
-LED_PIN = 24
+LIGHT_PIN = 2          # Analogue pin, cannot conflict with joystick using 2 data pins (0, 1)
+BUZZER_PIN = 5         # Digital pin, can be any of 3, 5, 6, 9 - these are PWM-enabled pins and allow for volume control.
+LED_PIN = 8            # Digital pin
+MOTOR_PIN = 18         # GPIO pin, for PWM control of servo motor.
 LIGHT_THRESHOLD = 200  # Up to 1024, but realistic values are up to 800.
 
 # F5 — Pomodoro

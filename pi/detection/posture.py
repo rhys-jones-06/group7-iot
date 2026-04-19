@@ -32,7 +32,7 @@ from config import (
     FACE_BASELINE_FRAMES,
     CAMERA_FPS_CAP,
 )
-from pi.state import GlobalState
+from state import GlobalState
 
 logger = logging.getLogger(__name__)
 
