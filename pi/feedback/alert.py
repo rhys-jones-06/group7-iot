@@ -33,7 +33,6 @@ GPIO.setup(MOTOR_PIN, GPIO.OUT)
 grovepi.pinMode(BUZZER_PIN, "OUTPUT")
 
 pwm = GPIO.PWM(MOTOR_PIN, 50)
-pwm.start(7.5)  # 7.5 duty cycle is about center position (90 degrees)
 
 
 def set_angle(angle: float) -> None:
@@ -46,6 +45,9 @@ def set_angle(angle: float) -> None:
 
 def vibrate(center: float = 90, amplitude: float = 3, cycles: int = 50) -> None:
     """Vibrate the servo around a centre angle, by a given amplitude, for a number of cycles."""
+
+    # 7.5 duty cycle is about center position (90 degrees)
+    pwm.start(7.5)
     for _ in range(cycles):
         set_angle(center + amplitude)
         set_angle(center - amplitude)

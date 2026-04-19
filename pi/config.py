@@ -24,7 +24,7 @@ LIGHT_PIN = 2          # Analogue pin, cannot conflict with joystick using 2 dat
 BUZZER_PIN = 5         # Digital pin, can be any of 3, 5, 6, 9 - these are PWM-enabled pins and allow for volume control.
 LED_PIN = 8            # Digital pin
 MOTOR_PIN = 18         # GPIO pin, for PWM control of servo motor.
-LIGHT_THRESHOLD = 200  # Up to 1024, but realistic values are up to 800.
+LIGHT_THRESHOLD = 25   # Up to 1024, but realistic values are up to 800.
 
 # F5 — Pomodoro
 DEFAULT_FOCUS_MINS = 25
