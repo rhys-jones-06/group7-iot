@@ -9,8 +9,8 @@ from grove_rgb_lcd import setRGB, setText
 PIN_JOYSTICK_X = 0
 PIN_JOYSTICK_Y = 1
 
-grovepi.pinMode(PIN_JOYSTICK_X,"INPUT")
-grovepi.pinMode(PIN_JOYSTICK_Y,"INPUT")
+grovepi.pinMode(PIN_JOYSTICK_X, "INPUT")
+grovepi.pinMode(PIN_JOYSTICK_Y, "INPUT")
 
 # Pos X to the right, pos Y up, with text on back upright.
 # The joystick defines its own zones, so there is no calibration for deadzones.
@@ -36,4 +36,4 @@ if __name__ == "__main__":
         click = 1 if x >= 1020 else 0
 
         print("x =", x, " y =", y, " click =", click)
-        time.sleep(.5)
+        time.sleep(0.5)

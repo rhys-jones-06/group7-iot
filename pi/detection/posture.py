@@ -5,7 +5,7 @@
 # HOW IT WORKS:
 #   YOLO already detects you as a "person" every frame for F2.
 #   The top of that bounding box = the top of your head.
-#   
+#
 #   1. CALIBRATION: Sit properly for a few seconds. The system learns
 #      where the top of your head normally is. "Return to this position"
 #      is the baseline.
@@ -26,8 +26,10 @@ import time
 import logging
 
 from config import (
-    POSTURE_ENABLED, FACE_DROP_THRESHOLD,
-    POSTURE_SUSTAINED_S, FACE_BASELINE_FRAMES,
+    POSTURE_ENABLED,
+    FACE_DROP_THRESHOLD,
+    POSTURE_SUSTAINED_S,
+    FACE_BASELINE_FRAMES,
     CAMERA_FPS_CAP,
 )
 from pi.state import GlobalState
@@ -72,12 +74,9 @@ def start_posture_detection(shared_state: GlobalState, state_lock):
                 if len(baseline_readings) == FACE_BASELINE_FRAMES:
                     baseline_y = sum(baseline_readings) / len(baseline_readings)
                     logger.info(
-                        "Baseline calibrated: head top at %.1f%% of frame",
-                        baseline_y * 100
+                        "Baseline calibrated: head top at %.1f%% of frame", baseline_y * 100
                     )
-                    logger.info(
-                        "Sit like this = good posture. Slouching will be detected."
-                    )
+                    logger.info("Sit like this = good posture. Slouching will be detected.")
 
                 with state_lock:
                     shared_state.posture_status = "calibrating"

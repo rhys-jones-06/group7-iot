@@ -30,14 +30,20 @@ except ImportError:
     GPIO = None
 
 from config import (
-    CAMERA_ENABLED, CAMERA_FPS_CAP, YOLO_ONNX_PATH,
-    YOLO_CONFIDENCE_THRESHOLD, YOLO_NMS_THRESHOLD,
-    YOLO_PHONE_CLASS_ID, YOLO_INPUT_SIZE, PHONE_HEIGHT_RATIO, LED_PIN,
+    CAMERA_ENABLED,
+    CAMERA_FPS_CAP,
+    YOLO_ONNX_PATH,
+    YOLO_CONFIDENCE_THRESHOLD,
+    YOLO_NMS_THRESHOLD,
+    YOLO_PHONE_CLASS_ID,
+    YOLO_INPUT_SIZE,
+    PHONE_HEIGHT_RATIO,
+    LED_PIN,
 )
 
 logger = logging.getLogger(__name__)
 
-PERSON_CLASS_ID = 0   # COCO class 0 = "person"
+PERSON_CLASS_ID = 0  # COCO class 0 = "person"
 PERSON_CONFIDENCE = 0.2
 
 
@@ -62,7 +68,7 @@ def _preprocess(frame):
     canvas = np.full((target, target, 3), 114, dtype=np.uint8)
     pad_h = (target - new_h) // 2
     pad_w = (target - new_w) // 2
-    canvas[pad_h:pad_h + new_h, pad_w:pad_w + new_w] = resized
+    canvas[pad_h : pad_h + new_h, pad_w : pad_w + new_w] = resized
     blob = cv2.dnn.blobFromImage(canvas, 1.0 / 255.0, (target, target), swapRB=True, crop=False)
     return blob, ratio, pad_w, pad_h
 
@@ -83,18 +89,21 @@ def _extract_detections(output, class_id, conf_threshold, ratio, pad_w, pad_h, f
     x1, y1 = np.clip(x1, 0, frame_w), np.clip(y1, 0, frame_h)
     x2, y2 = np.clip(x2, 0, frame_w), np.clip(y2, 0, frame_h)
     nms_boxes = np.stack([x1, y1, x2 - x1, y2 - y1], axis=1)
-    indices = cv2.dnn.NMSBoxes(nms_boxes.tolist(), filtered_scores.tolist(),
-                                conf_threshold, YOLO_NMS_THRESHOLD)
+    indices = cv2.dnn.NMSBoxes(
+        nms_boxes.tolist(), filtered_scores.tolist(), conf_threshold, YOLO_NMS_THRESHOLD
+    )
     results = []
     if len(indices) > 0:
         for i in (indices.flatten() if isinstance(indices, np.ndarray) else indices):
-            results.append({
-                "y1": float(y1[i]),   # top of bounding box
-                "y2": float(y2[i]),   # bottom of bounding box
-                "x1": float(x1[i]),
-                "x2": float(x2[i]),
-                "conf": float(filtered_scores[i]),
-            })
+            results.append(
+                {
+                    "y1": float(y1[i]),  # top of bounding box
+                    "y2": float(y2[i]),  # bottom of bounding box
+                    "x1": float(x1[i]),
+                    "x2": float(x2[i]),
+                    "conf": float(filtered_scores[i]),
+                }
+            )
     return results
 
 
@@ -135,9 +144,16 @@ def start_phone_detection(shared_state: GlobalState, state_lock) -> None:
             output = net.forward()
 
             # --- F2: PHONE DETECTION ---
-            phones = _extract_detections(output, YOLO_PHONE_CLASS_ID,
-                                         YOLO_CONFIDENCE_THRESHOLD,
-                                         ratio, pad_w, pad_h, frame_h, frame_w)
+            phones = _extract_detections(
+                output,
+                YOLO_PHONE_CLASS_ID,
+                YOLO_CONFIDENCE_THRESHOLD,
+                ratio,
+                pad_w,
+                pad_h,
+                frame_h,
+                frame_w,
+            )
             phone_found = len(phones) > 0
             best_phone_conf = max([p["conf"] for p in phones], default=0.0)
             for det in phones:
@@ -147,9 +163,9 @@ def start_phone_detection(shared_state: GlobalState, state_lock) -> None:
                     best_phone_conf = max(best_phone_conf, det["conf"])
 
             # --- F3: PERSON DETECTION (for posture) ---
-            persons = _extract_detections(output, PERSON_CLASS_ID,
-                                          PERSON_CONFIDENCE,
-                                          ratio, pad_w, pad_h, frame_h, frame_w)
+            persons = _extract_detections(
+                output, PERSON_CLASS_ID, PERSON_CONFIDENCE, ratio, pad_w, pad_h, frame_h, frame_w
+            )
 
             # Take the largest person (closest to camera)
             person_head_y = None
