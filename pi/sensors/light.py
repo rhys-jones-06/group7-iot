@@ -23,5 +23,4 @@ def start_light_monitoring(state: GlobalState, state_lock: threading.Lock) -> No
         with state_lock:
             state.low_light = sensor_value < LIGHT_THRESHOLD
 
-        print(f"{sensor_value}")
         time.sleep(0.5)
