@@ -22,7 +22,7 @@ import time
 import RPi.GPIO as GPIO
 import grovepi
 
-from config import BUZZER_PIN, LED_PIN, MOTOR_PIN
+from config import BUZZER_PIN, LED_PIN, MOTOR_PIN, BUZZER_VOLUME
 from state import GlobalState
 
 logger = logging.getLogger(__name__)
@@ -75,9 +75,9 @@ def start_alert_feedback(state: GlobalState, lock: threading.Lock) -> None:
             elif distraction_seconds > 10:
                 # F4: level 2: buzzer (skipped in low-light — LED only)
                 if not low_light:
-                    grovepi.digitalWrite(BUZZER_PIN, 1)
+                    grovepi.analogWrite(BUZZER_PIN, BUZZER_VOLUME)
                     time.sleep(0.5)
-                    grovepi.digitalWrite(BUZZER_PIN, 0)
+                    grovepi.analogWrite(BUZZER_PIN, 0)
             else:
                 # F4: level 1: LED flash
                 grovepi.digitalWrite(LED_PIN, 1)
