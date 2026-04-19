@@ -51,6 +51,7 @@ def vibrate(center: float = 90, amplitude: float = 3, cycles: int = 50) -> None:
     for _ in range(cycles):
         set_angle(center + amplitude)
         set_angle(center - amplitude)
+    pwm.stop()
 
 
 # level 1: 0–10s  - LED flash
