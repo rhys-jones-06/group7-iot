@@ -18,3 +18,4 @@ class GlobalState:
         self.head_drop_pct: float = 0.0
         self.distraction_start: float | None = None
         self.distraction_seconds: float = 0.0
+        self.low_light: bool = False

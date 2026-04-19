@@ -18,6 +18,7 @@ from typing import Callable
 from detection.camera import start_phone_detection
 from detection.posture import start_posture_detection
 from config import LOG_LEVEL
+from pi.sensors.light import start_light_monitoring
 from pi.state import GlobalState
 
 logging.basicConfig(
@@ -45,6 +46,12 @@ class MainRunner:
             args=(state, state_lock),
             daemon=True,
         )
+        self.light_thread = threading.Thread(
+            target=start_light_monitoring,
+            args=(state, state_lock),
+            daemon=True,
+        )
+
 
     def splash_screen(self) -> None:
         print()
@@ -65,6 +72,8 @@ class MainRunner:
         time.sleep(2.0)
         logger.info("Starting posture thread (F3)...")
         self.posture_thread.start()
+        logger.info("Starting light thread (F4)...")
+        self.light_thread.start()
         logger.info("Running.\n")
 
     def stop(self) -> None:
@@ -73,6 +82,7 @@ class MainRunner:
         logger.info("Stopping...")
         self.camera_thread.join(timeout=5.0)
         self.posture_thread.join(timeout=5.0)
+        self.light_thread.join(timeout=5.0)
         logger.info("Done.")
 
     def loop(self) -> None:
@@ -130,7 +140,9 @@ class MainRunner:
             else:
                 o = "focused"
 
-            print("  Phone: {:18s} | Posture: {:22s} | {}".format(p, s, o))
+            l = "t" if self.state.low_light else "f"
+
+            print(" Low Light: {} | Phone: {:18s} | Posture: {:22s} | {}".format(l, p, s, o))
 
             time.sleep(1.0)
 

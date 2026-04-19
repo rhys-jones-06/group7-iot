@@ -39,6 +39,7 @@ def set_angle(angle: float) -> None:
     # 0.005 produces no output, so does 0.01, so 0.06 seems the best to produce a good jitter.
     time.sleep(0.006)
 
+
 def vibrate(center: float = 90, amplitude: float = 3, cycles: int = 50) -> None:
     """Vibrate the servo around a centre angle, by a given amplitude, for a number of cycles."""
     for _ in range(cycles):
