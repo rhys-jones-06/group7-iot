@@ -70,7 +70,6 @@ def start_alert_feedback(state: GlobalState, lock: threading.Lock) -> None:
 
         if phone_detected:
             if distraction_seconds > 20:
-                logger.info("Distraction detected for %.1f seconds — activating motor vibration", distraction_seconds)
                 # F4: level 3: motor vibration
                 vibrate()
             elif distraction_seconds > 10:
