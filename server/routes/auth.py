@@ -9,10 +9,10 @@ import logging
 import secrets
 from typing import Tuple, Union
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
-from flask_login import login_user, logout_user, current_user
+from flask_login import login_user, logout_user, login_required, current_user
 from sqlalchemy.exc import IntegrityError
 
-from app import db, limiter
+from extensions import db, limiter
 from validators import LoginSchema, validate_json_request
 
 auth_bp = Blueprint('auth', __name__)
@@ -120,9 +120,9 @@ def register_page() -> Union[str, Tuple[str, int]]:
             db.session.flush()  # Flush to validate before commit
             db.session.commit()
 
-            logger.info(f"New user registered successfully: {username}")
-            flash('Account created successfully! Please log in.', 'success')
-            return redirect(url_for('auth.login_page'))
+            login_user(new_user)
+            logger.info(f"New user registered and logged in: {username}")
+            return redirect(url_for('auth.survey_page'))
         except IntegrityError as e:
             db.session.rollback()
             logger.error(f"IntegrityError during registration for username: {username}: {str(e)}")
@@ -138,6 +138,70 @@ def register_page() -> Union[str, Tuple[str, int]]:
             return render_template('register.html'), 200
 
     return render_template('register.html')
+
+
+@auth_bp.route('/survey', methods=['GET', 'POST'])
+@login_required
+def survey_page() -> Union[str, Tuple[str, int]]:
+    """
+    Post-registration survey.
+
+    GET:  Render survey form (skip to dashboard if already completed)
+    POST: Save profile data and redirect to dashboard
+    """
+    from models import UserProfile, UserSettings
+
+    # Skip survey if already completed
+    existing = db.session.query(UserProfile).filter_by(user_id=current_user.id).first()
+    if existing:
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        occupation = request.form.get('occupation_type', 'other')
+
+        try:
+            age_raw = request.form.get('age', '').strip()
+            age = int(age_raw) if age_raw.isdigit() else None
+
+            hours_raw = request.form.get('daily_study_hours', '').strip()
+            try:
+                daily_hours = float(hours_raw) if hours_raw else None
+            except ValueError:
+                daily_hours = None
+
+            year_raw = request.form.get('year_of_study', '').strip()
+            try:
+                year = int(year_raw) if year_raw else None
+            except ValueError:
+                year = None
+
+            profile = UserProfile(
+                user_id=current_user.id,
+                age=age,
+                occupation_type=occupation,
+                institution=request.form.get('institution', '').strip() or None,
+                year_of_study=year,
+                field_of_study=request.form.get('field_of_study', '').strip() or None,
+                job_title=request.form.get('job_title', '').strip() or None,
+                daily_study_hours=daily_hours,
+                study_goals=request.form.get('study_goals', '').strip() or None,
+            )
+            db.session.add(profile)
+
+            # Create default settings row for the device
+            if not db.session.query(UserSettings).filter_by(user_id=current_user.id).first():
+                db.session.add(UserSettings(user_id=current_user.id))
+
+            db.session.commit()
+            logger.info(f"Survey completed for user {current_user.id}")
+            return redirect(url_for('dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Survey save error for user {current_user.id}: {e}", exc_info=True)
+            flash('Something went wrong saving your profile. You can update it later in Settings.', 'error')
+            return redirect(url_for('dashboard'))
+
+    return render_template('survey.html', username=current_user.username)
 
 
 @auth_bp.route('/logout', methods=['POST'])

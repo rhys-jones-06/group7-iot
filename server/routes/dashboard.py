@@ -6,7 +6,9 @@ Provides analytics endpoints for the web dashboard (F6, F8).
 All routes require authentication via session cookie.
 """
 
+import json
 import logging
+from collections import defaultdict
 from typing import Dict, Any, List, Tuple
 from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request, current_app
@@ -14,8 +16,8 @@ from flask_login import login_required, current_user
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 
-from app import db
-from models import Session, Distraction
+from extensions import db
+from models import Session, Distraction, User
 
 dashboard_bp = Blueprint('dashboard', __name__, url_prefix='/api')
 logger = logging.getLogger(__name__)
@@ -104,11 +106,9 @@ def get_summary() -> Tuple[Dict[str, Any], int]:
             Session.timestamp >= today_start
         ).scalar() or 0.0
 
-        # Current streak (from most recent session)
-        latest_session = db.session.query(Session).filter_by(user_id=current_user.id).order_by(
-            Session.timestamp.desc()
-        ).first()
-        current_streak = latest_session.streak_days if latest_session else 0
+        # Current streak — read from User row (authoritative, updated on every ingest)
+        user_row = db.session.get(User, current_user.id)
+        current_streak = user_row.streak_days if user_row else 0
 
         # This week's average (optimized)
         this_week_avg = db.session.query(func.avg(Session.focus_score)).filter(
@@ -270,4 +270,195 @@ def get_trend() -> Tuple[Dict[str, Any], int]:
         return jsonify({'error': 'database_error'}), 500
     except Exception as e:
         logger.error(f"Unexpected error in get_trend: {e}")
+        return jsonify({'error': 'internal_error'}), 500
+
+
+@dashboard_bp.route('/leaderboard', methods=['GET'])
+@login_required
+def get_leaderboard() -> Tuple[Dict[str, Any], int]:
+    """
+    Top 10 users ranked by composite score: SUM(duration_mins) * AVG(focus_score).
+    Rewards both total time invested and focus quality.
+
+    Returns:
+        JSON: {
+            "leaderboard": [
+                {"rank": 1, "username": "...", "score": 12450, "total_mins": 150, "avg_focus": 83.0, "is_me": false},
+                ...
+            ],
+            "current_user": "<username>"
+        }
+    """
+    try:
+        rows = (
+            db.session.query(
+                User.username,
+                func.round(func.sum(Session.duration_mins), 1).label('total_mins'),
+                func.round(func.avg(Session.focus_score), 1).label('avg_focus'),
+                func.count(Session.id).label('session_count'),
+            )
+            .join(Session, User.id == Session.user_id)
+            .group_by(User.id, User.username)
+            .order_by(
+                (func.sum(Session.duration_mins) * func.avg(Session.focus_score)).desc()
+            )
+            .limit(10)
+            .all()
+        )
+
+        leaderboard = []
+        for i, row in enumerate(rows):
+            total_mins = float(row.total_mins or 0)
+            avg_focus  = float(row.avg_focus  or 0)
+            leaderboard.append({
+                'rank':       i + 1,
+                'username':   row.username,
+                'score':      round(total_mins * avg_focus),
+                'total_mins': round(total_mins),
+                'avg_focus':  round(avg_focus, 1),
+                'sessions':   int(row.session_count),
+                'is_me':      row.username == current_user.username,
+            })
+
+        # If current user has no sessions, append them at the bottom unranked
+        me_in_list = any(e['is_me'] for e in leaderboard)
+        if not me_in_list:
+            leaderboard.append({
+                'rank':       len(leaderboard) + 1,
+                'username':   current_user.username,
+                'score':      0,
+                'total_mins': 0,
+                'avg_focus':  0.0,
+                'sessions':   0,
+                'is_me':      True,
+            })
+
+        logger.debug(f"Leaderboard fetched by user {current_user.id}, {len(leaderboard)} entries")
+        return jsonify({'leaderboard': leaderboard, 'current_user': current_user.username}), 200
+
+    except SQLAlchemyError as e:
+        logger.error(f"Database error in get_leaderboard: {e}")
+        return jsonify({'error': 'database_error'}), 500
+    except Exception as e:
+        logger.error(f"Unexpected error in get_leaderboard: {e}")
+        return jsonify({'error': 'internal_error'}), 500
+
+
+@dashboard_bp.route('/stats/all-time', methods=['GET'])
+@login_required
+def get_all_time_stats() -> Tuple[Dict[str, Any], int]:
+    """All-time aggregate stats for the current user."""
+    try:
+        uid = current_user.id
+        total_sessions = db.session.query(func.count(Session.id)).filter(Session.user_id == uid).scalar() or 0
+        total_mins = db.session.query(func.sum(Session.duration_mins)).filter(Session.user_id == uid).scalar() or 0.0
+        avg_focus = db.session.query(func.avg(Session.focus_score)).filter(Session.user_id == uid).scalar() or 0.0
+        avg_duration = db.session.query(func.avg(Session.duration_mins)).filter(Session.user_id == uid).scalar() or 0.0
+        total_distr = (
+            db.session.query(func.count(Distraction.id))
+            .join(Session, Distraction.session_id == Session.id)
+            .filter(Session.user_id == uid)
+            .scalar() or 0
+        )
+        user_row = db.session.get(User, uid)
+        best_streak = getattr(user_row, 'best_streak_days', 0) if user_row else 0
+
+        return jsonify({
+            'total_sessions': int(total_sessions),
+            'total_focus_mins': round(float(total_mins), 1),
+            'avg_focus_score': round(float(avg_focus), 1),
+            'avg_session_mins': round(float(avg_duration), 1),
+            'total_distractions': int(total_distr),
+            'best_streak_days': int(best_streak),
+        }), 200
+    except SQLAlchemyError as e:
+        logger.error(f"Database error in get_all_time_stats: {e}")
+        return jsonify({'error': 'database_error'}), 500
+    except Exception as e:
+        logger.error(f"Unexpected error in get_all_time_stats: {e}")
+        return jsonify({'error': 'internal_error'}), 500
+
+
+@dashboard_bp.route('/stats/breakdown', methods=['GET'])
+@login_required
+def get_breakdown() -> Tuple[Dict[str, Any], int]:
+    """Distraction type counts and per-day-of-week focus averages."""
+    try:
+        uid = current_user.id
+        phone_count = (
+            db.session.query(func.count(Distraction.id))
+            .join(Session, Distraction.session_id == Session.id)
+            .filter(Session.user_id == uid, Distraction.type == 'phone')
+            .scalar() or 0
+        )
+        posture_count = (
+            db.session.query(func.count(Distraction.id))
+            .join(Session, Distraction.session_id == Session.id)
+            .filter(Session.user_id == uid, Distraction.type == 'posture')
+            .scalar() or 0
+        )
+
+        sessions = db.session.query(Session).filter(Session.user_id == uid).all()
+        day_scores: dict = defaultdict(list)
+        for s in sessions:
+            day_scores[s.timestamp.weekday()].append(s.focus_score)
+
+        days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        by_day = [
+            {
+                'day': days[i],
+                'avg_focus': round(sum(day_scores[i]) / len(day_scores[i]), 1) if day_scores[i] else 0.0,
+                'count': len(day_scores[i]),
+            }
+            for i in range(7)
+        ]
+
+        return jsonify({'by_type': {'phone': int(phone_count), 'posture': int(posture_count)}, 'by_day': by_day}), 200
+    except SQLAlchemyError as e:
+        logger.error(f"Database error in get_breakdown: {e}")
+        return jsonify({'error': 'database_error'}), 500
+    except Exception as e:
+        logger.error(f"Unexpected error in get_breakdown: {e}")
+        return jsonify({'error': 'internal_error'}), 500
+
+
+@dashboard_bp.route('/dashboard/layout', methods=['GET'])
+@login_required
+def get_layout() -> Tuple[Dict[str, Any], int]:
+    """Return the user's saved dashboard widget layout (empty list = use default)."""
+    from models import DashboardLayout
+    try:
+        row = db.session.query(DashboardLayout).filter_by(user_id=current_user.id).first()
+        layout = json.loads(row.layout_json) if row else []
+        return jsonify({'layout': layout}), 200
+    except Exception as e:
+        logger.error(f"Error in get_layout: {e}")
+        return jsonify({'layout': []}), 200
+
+
+@dashboard_bp.route('/dashboard/layout', methods=['PUT'])
+@login_required
+def save_layout() -> Tuple[Dict[str, Any], int]:
+    """Persist the user's dashboard widget layout."""
+    from models import DashboardLayout
+    try:
+        data = request.get_json()
+        if not data or 'layout' not in data:
+            return jsonify({'error': 'bad_request'}), 400
+
+        layout_json = json.dumps(data['layout'])
+        row = db.session.query(DashboardLayout).filter_by(user_id=current_user.id).first()
+        if row:
+            row.layout_json = layout_json
+        else:
+            row = DashboardLayout(user_id=current_user.id, layout_json=layout_json)
+            db.session.add(row)
+        db.session.commit()
+        return jsonify({'status': 'saved'}), 200
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        logger.error(f"Database error in save_layout: {e}")
+        return jsonify({'error': 'database_error'}), 500
+    except Exception as e:
+        logger.error(f"Error in save_layout: {e}")
         return jsonify({'error': 'internal_error'}), 500

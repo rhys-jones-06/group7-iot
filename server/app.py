@@ -9,17 +9,10 @@ import logging
 import os
 from typing import Tuple
 from flask import Flask, render_template, redirect, url_for
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, login_required, current_user
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+from flask_login import login_required, current_user
 
 from config import get_config
-
-# Initialize extensions
-db = SQLAlchemy()
-login_manager = LoginManager()
-limiter = Limiter(key_func=get_remote_address)
+from extensions import db, login_manager, limiter
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -59,22 +52,25 @@ def create_app() -> Flask:
     def load_user(user_id: str):
         """Load user by ID from database."""
         from models import User
-        return db.session.query(User).get(int(user_id))
-
-    # Create database tables within app context
-    with app.app_context():
-        db.create_all()
-        logger.info("Database tables initialized")
+        return db.session.get(User, int(user_id))
 
     # Register blueprints (routes)
     from routes.auth import auth_bp
     from routes.ingest import ingest_bp
     from routes.dashboard import dashboard_bp
+    from routes.settings import settings_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(ingest_bp)
     app.register_blueprint(dashboard_bp)
+    app.register_blueprint(settings_bp)
     logger.info("Blueprints registered")
+
+    # Create database tables within app context (models must be imported first)
+    with app.app_context():
+        import models  # noqa: F401 — ensures tables are registered before create_all
+        db.create_all()
+        logger.info("Database tables initialized")
 
     # Main dashboard route (F6: Custom web dashboard)
     @app.route('/', methods=['GET'])
@@ -83,13 +79,6 @@ def create_app() -> Flask:
         """Serve the main dashboard HTML."""
         logger.debug(f"Dashboard accessed by user {current_user.id}")
         return render_template('dashboard.html', username=current_user.username), 200
-
-    # Redirect /login to /login if already authenticated
-    @app.route('/login', methods=['GET'])
-    def login_redirect():
-        if current_user.is_authenticated:
-            return redirect(url_for('dashboard'))
-        return redirect(url_for('auth.login_page'))
 
     # Error handlers
     @app.errorhandler(429)

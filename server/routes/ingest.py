@@ -7,11 +7,12 @@ Authenticated with X-API-Key header.
 """
 
 import logging
+from datetime import datetime, date, timedelta
 from typing import Optional, Dict, Any, Tuple
 from flask import Blueprint, request, jsonify
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from app import db, limiter
+from extensions import db, limiter
 from models import User, Session, Distraction
 from validators import SessionIngestSchema, validate_json_request
 
@@ -35,6 +36,26 @@ def get_user_from_api_key() -> Optional[User]:
     except SQLAlchemyError as e:
         logger.error(f"Database error during API key lookup: {e}")
         return None
+
+
+def _compute_streak(user: User, session_date: date) -> int:
+    """
+    Return the new streak value given the user's current state and the incoming session date.
+
+    Rules:
+      - Same day as last_session_date  → no change (already counted today)
+      - Exactly one day after           → increment
+      - Gap of 2+ days                  → reset to 1
+      - No previous session             → start at 1
+    """
+    last = user.last_session_date
+    if last is None:
+        return 1
+    if session_date == last:
+        return user.streak_days  # multiple sessions same day, keep streak
+    if session_date == last + timedelta(days=1):
+        return user.streak_days + 1
+    return 1  # gap — streak broken
 
 
 @ingest_bp.route('/ingest/session', methods=['POST'])
@@ -95,6 +116,17 @@ def ingest_session() -> Tuple[Dict[str, Any], int]:
         }), 400
 
     try:
+        # Compute streak server-side
+        session_date = validated['timestamp'].date() if isinstance(validated['timestamp'], datetime) else validated['timestamp']
+        today = session_date
+        streak = _compute_streak(user, today)
+
+        # Persist streak onto user row
+        user.streak_days = streak
+        user.last_session_date = today
+        if streak > (user.best_streak_days or 0):
+            user.best_streak_days = streak
+
         # Create session (F6)
         session = Session(
             user_id=user.id,
@@ -102,7 +134,7 @@ def ingest_session() -> Tuple[Dict[str, Any], int]:
             duration_mins=validated['duration_mins'],
             distraction_count=validated['distraction_count'],
             focus_score=validated['focus_score'],
-            streak_days=validated['streak_days']
+            streak_days=streak
         )
         db.session.add(session)
         db.session.flush()  # Get the session ID before committing

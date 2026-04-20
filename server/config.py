@@ -9,6 +9,39 @@ import os
 from datetime import timedelta
 
 
+def _database_url() -> str:
+    """
+    Resolve database URL from environment.
+
+    Priority:
+      1. DATABASE_URL env var (Heroku/OpenShift single-var style)
+      2. Individual POSTGRESQL_* vars injected by OpenShift's PostgreSQL service
+      3. Local SQLite fallback (development only)
+
+    SQLAlchemy 1.4+ requires 'postgresql://' not 'postgres://'.
+    """
+    url = os.environ.get('DATABASE_URL', '')
+
+    if not url:
+        # Try OpenShift individual vars
+        pg_host = os.environ.get('POSTGRESQL_SERVICE_HOST', '')
+        if pg_host:
+            user = os.environ.get('POSTGRESQL_USER', 'lockin')
+            pwd  = os.environ.get('POSTGRESQL_PASSWORD', '')
+            db   = os.environ.get('POSTGRESQL_DATABASE', 'lockin')
+            port = os.environ.get('POSTGRESQL_SERVICE_PORT', '5432')
+            url  = f'postgresql://{user}:{pwd}@{pg_host}:{port}/{db}'
+
+    if not url:
+        url = 'sqlite:///lockin.db'
+
+    # Fix legacy 'postgres://' prefix
+    if url.startswith('postgres://'):
+        url = url.replace('postgres://', 'postgresql://', 1)
+
+    return url
+
+
 class Config:
     """Base configuration — shared across all environments."""
 
@@ -18,10 +51,7 @@ class Config:
     TESTING = False
 
     # Database
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        'DATABASE_URL',
-        'sqlite:///lockin.db'
-    )
+    SQLALCHEMY_DATABASE_URI = _database_url()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_pre_ping': True,
