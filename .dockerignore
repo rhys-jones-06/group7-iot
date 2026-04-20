@@ -1,0 +1,13 @@
+**/__pycache__
+**/*.pyc
+**/*.pyo
+.git
+.gitignore
+server/instance/
+server/.env
+*.md
+pi/
+static/
+templates/
+requirements-pi.txt
+firebase-debug.log

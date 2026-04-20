@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LockIn — Tell Us About You</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #FF6B6B;
+            --primary-dark: #E55555;
+            --secondary: #4ECDC4;
+            --secondary-dark: #3AB5AC;
+            --success: #58CC02;
+            --success-dark: #46A302;
+            --dark: #1F2937;
+            --mid: #4B5563;
+            --muted: #9CA3AF;
+            --border: #E5E7EB;
+            --border-shadow: #D1D5DB;
+            --bg: #F9FAFB;
+            --white: #FFFFFF;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 3rem 1rem 4rem;
+        }
+
+        /* ── Progress header ── */
+        .page-header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            max-width: 560px;
+            width: 100%;
+        }
+
+        .page-header h1 {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 0.4rem;
+        }
+
+        .page-header p {
+            color: var(--muted);
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        /* ── Card ── */
+        .survey-card {
+            background: var(--white);
+            border-radius: 20px;
+            border: 2px solid var(--border);
+            box-shadow: 0 4px 0 var(--border-shadow);
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 560px;
+        }
+
+        /* ── Section headings ── */
+        .section-title {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin: 2rem 0 1.25rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .section-title:first-of-type { margin-top: 0; }
+
+        /* ── Form elements ── */
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .form-group label .optional {
+            font-weight: 500;
+            color: var(--muted);
+            font-size: 0.8rem;
+            margin-left: 0.25rem;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="number"],
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-family: 'Outfit', sans-serif;
+            background: var(--white);
+            color: var(--dark);
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--secondary);
+            box-shadow: 0 0 0 3px rgba(78, 205, 196, 0.15);
+        }
+
+        .form-group input::placeholder,
+        .form-group textarea::placeholder { color: var(--muted); }
+
+        .form-group textarea { resize: vertical; min-height: 80px; }
+
+        /* ── Occupation chips ── */
+        .chip-group {
+            display: flex;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+        }
+
+        .chip-group input[type="radio"] { display: none; }
+
+        .chip-group label {
+            display: inline-block;
+            padding: 0.55rem 1.1rem;
+            border: 2px solid var(--border);
+            border-radius: 99px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--mid);
+            cursor: pointer;
+            transition: all 0.15s;
+            background: var(--white);
+            margin-bottom: 0;
+        }
+
+        .chip-group input[type="radio"]:checked + label {
+            background: var(--secondary);
+            border-color: var(--secondary-dark);
+            color: var(--white);
+            box-shadow: 0 3px 0 var(--secondary-dark);
+        }
+
+        /* ── Conditional sections ── */
+        .conditional { display: none; }
+        .conditional.visible { display: block; }
+
+        /* ── Hours slider ── */
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .slider-row input[type="range"] {
+            flex: 1;
+            border: none;
+            box-shadow: none;
+            padding: 0;
+            accent-color: var(--secondary);
+        }
+
+        .slider-row input[type="range"]:focus { box-shadow: none; }
+
+        .slider-value {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--dark);
+            min-width: 50px;
+            text-align: right;
+        }
+
+        /* ── Error ── */
+        .flash-error {
+            background: #FFF0F0;
+            color: var(--primary-dark);
+            padding: 0.9rem 1rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            border: 2px solid #FFCDD2;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        /* ── Actions ── */
+        .actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 2rem;
+            flex-direction: column;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 0.9rem;
+            background: var(--success);
+            color: white;
+            border: 2px solid var(--success-dark);
+            box-shadow: 0 4px 0 var(--success-dark);
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            font-family: 'Fredoka', sans-serif;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.1s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 var(--success-dark);
+        }
+
+        .btn-skip {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--white);
+            color: var(--muted);
+            border: 2px solid var(--border);
+            box-shadow: 0 3px 0 var(--border-shadow);
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            font-family: 'Outfit', sans-serif;
+            cursor: pointer;
+            text-decoration: none;
+            display: block;
+            text-align: center;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .btn-skip:active {
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 var(--border-shadow);
+        }
+
+        @media (max-width: 600px) {
+            body { padding: 2rem 1rem 3rem; }
+            .survey-card { padding: 1.75rem 1.25rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="page-header">
+        <h1>Nice to meet you, {{ username }}!</h1>
+        <p>Help us get to know you — takes about 1 minute</p>
+    </div>
+
+    <div class="survey-card">
+
+        {% with messages = get_flashed_messages(category_filter=['error']) %}
+            {% if messages %}
+                <div class="flash-error">{{ messages[0] }}</div>
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" id="survey-form">
+
+            <!-- About you -->
+            <div class="section-title">About You</div>
+
+            <div class="form-group">
+                <label for="age">Age</label>
+                <input type="number" id="age" name="age" min="13" max="100" placeholder="e.g. 21">
+            </div>
+
+            <div class="form-group">
+                <label>What best describes you?</label>
+                <div class="chip-group" id="occupation-chips">
+                    <input type="radio" name="occupation_type" id="occ-student"       value="student"      checked>
+                    <label for="occ-student">🎓 Student</label>
+
+                    <input type="radio" name="occupation_type" id="occ-professional"  value="professional">
+                    <label for="occ-professional">💼 Professional</label>
+
+                    <input type="radio" name="occupation_type" id="occ-both"          value="both">
+                    <label for="occ-both">🔄 Both</label>
+
+                    <input type="radio" name="occupation_type" id="occ-other"         value="other">
+                    <label for="occ-other">✨ Other</label>
+                </div>
+            </div>
+
+            <!-- Student fields -->
+            <div class="conditional visible" id="student-fields">
+                <div class="section-title">Student Details</div>
+
+                <div class="form-group">
+                    <label for="institution">
+                        University / School
+                        <span class="optional">(optional)</span>
+                    </label>
+                    <input type="text" id="institution" name="institution" placeholder="e.g. University of Manchester">
+                </div>
+
+                <div class="form-group">
+                    <label for="field_of_study">
+                        Course / Field of Study
+                        <span class="optional">(optional)</span>
+                    </label>
+                    <input type="text" id="field_of_study" name="field_of_study" placeholder="e.g. Computer Science">
+                </div>
+
+                <div class="form-group">
+                    <label for="year_of_study">
+                        Year of Study
+                        <span class="optional">(optional)</span>
+                    </label>
+                    <select id="year_of_study" name="year_of_study">
+                        <option value="">— Select year —</option>
+                        <option value="1">Year 1</option>
+                        <option value="2">Year 2</option>
+                        <option value="3">Year 3</option>
+                        <option value="4">Year 4</option>
+                        <option value="5">Year 5</option>
+                        <option value="6">Year 6 +</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Professional fields -->
+            <div class="conditional" id="professional-fields">
+                <div class="section-title">Work Details</div>
+
+                <div class="form-group">
+                    <label for="job_title">
+                        Job Title / Role
+                        <span class="optional">(optional)</span>
+                    </label>
+                    <input type="text" id="job_title" name="job_title" placeholder="e.g. Software Engineer">
+                </div>
+            </div>
+
+            <!-- Study habits -->
+            <div class="section-title">Your Study Habits</div>
+
+            <div class="form-group">
+                <label>Average study hours per day</label>
+                <div class="slider-row">
+                    <input type="range" id="daily_study_hours" name="daily_study_hours"
+                           min="0" max="12" step="0.5" value="3">
+                    <span class="slider-value" id="hours-display">3 hrs</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="study_goals">
+                    What do you want to improve?
+                    <span class="optional">(optional)</span>
+                </label>
+                <textarea id="study_goals" name="study_goals"
+                          placeholder="e.g. Stop picking up my phone, maintain better posture, build a study streak..."></textarea>
+            </div>
+
+            <div class="actions">
+                <button type="submit" class="btn-primary">Let's go! 🚀</button>
+                <a href="/" class="btn-skip">Skip for now</a>
+            </div>
+
+        </form>
+    </div>
+
+    <script>
+        const chips = document.querySelectorAll('#occupation-chips input[type="radio"]');
+        const studentFields = document.getElementById('student-fields');
+        const professionalFields = document.getElementById('professional-fields');
+
+        function updateFields() {
+            const val = document.querySelector('#occupation-chips input:checked').value;
+            studentFields.classList.toggle('visible',      val === 'student' || val === 'both');
+            professionalFields.classList.toggle('visible', val === 'professional' || val === 'both');
+        }
+
+        chips.forEach(c => c.addEventListener('change', updateFields));
+        updateFields();
+
+        // Hours slider label
+        const slider = document.getElementById('daily_study_hours');
+        const display = document.getElementById('hours-display');
+        slider.addEventListener('input', () => {
+            const v = parseFloat(slider.value);
+            display.textContent = v === 1 ? '1 hr' : `${v} hrs`;
+        });
+    </script>
+
+</body>
+</html>

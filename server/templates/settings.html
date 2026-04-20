@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LockIn — Settings</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --navy:       #1a3061;
+            --navy-dark:  #122348;
+            --navy-light: #2a4580;
+            --accent:     #4e8ef7;
+            --accent2:    #38d9a9;
+            --bg:         #eef2f9;
+            --card-bg:    #ffffff;
+            --text:       #1c2a45;
+            --text-muted: #7a8aab;
+            --border:     #dde4f0;
+            --header-h:   62px;
+            --sidebar-w:  80px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* ── HEADER ── */
+        header {
+            height: var(--header-h);
+            background: #fff;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 22px;
+            gap: 12px;
+            box-shadow: 0 1px 6px rgba(30,60,120,.07);
+            flex-shrink: 0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .logo-ring {
+            width: 36px; height: 36px;
+            border: 3px solid var(--navy);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .logo-ring span {
+            font-family: 'Space Mono', monospace;
+            font-size: 13px; font-weight: 700; color: var(--navy);
+        }
+
+        header h1 {
+            font-size: 1.1rem; font-weight: 700;
+            color: var(--text); flex: 1; letter-spacing: -.3px;
+        }
+
+        .header-actions { display: flex; gap: 8px; align-items: center; }
+
+        .hdr-btn {
+            font-size: .8rem; font-weight: 600;
+            font-family: 'DM Sans', sans-serif;
+            color: var(--text-muted); background: none;
+            border: 1px solid var(--border); border-radius: 8px;
+            padding: .35rem .8rem; cursor: pointer;
+            text-decoration: none;
+            display: inline-flex; align-items: center;
+            transition: background .15s, color .15s;
+        }
+        .hdr-btn:hover { background: var(--bg); color: var(--navy); }
+
+        /* ── LAYOUT ── */
+        .layout { display: flex; flex: 1; }
+
+        /* ── SIDEBAR ── */
+        aside {
+            width: var(--sidebar-w);
+            background: var(--navy);
+            display: flex; flex-direction: column;
+            align-items: center;
+            padding: 16px 0; gap: 4px; flex-shrink: 0;
+            min-height: calc(100vh - var(--header-h));
+        }
+
+        .nav-item {
+            width: 60px; padding: 10px 0;
+            display: flex; flex-direction: column;
+            align-items: center; gap: 4px;
+            border-radius: 10px; cursor: pointer;
+            color: rgba(255,255,255,.55);
+            font-size: .6rem; font-weight: 600;
+            letter-spacing: .4px; text-transform: uppercase;
+            text-decoration: none;
+            transition: background .2s, color .2s;
+        }
+        .nav-item svg { width: 22px; height: 22px; }
+        .nav-item:hover  { background: var(--navy-light); color: #fff; }
+        .nav-item.active { background: var(--navy-light); color: #fff; }
+
+        /* ── MAIN ── */
+        main {
+            flex: 1; overflow-y: auto;
+            padding: 24px 28px 48px;
+        }
+
+        .page-title {
+            font-size: 1.1rem; font-weight: 700;
+            color: var(--text); margin-bottom: 20px;
+        }
+
+        /* ── Flash messages ── */
+        .flash {
+            border-radius: 8px; padding: 10px 14px;
+            margin-bottom: 18px; font-size: .85rem; font-weight: 600;
+            border: 1px solid;
+        }
+        .flash.success { background:#f0fdf4; color:#166534; border-color:#bbf7d0; }
+        .flash.error   { background:#fff0f0; color:#c62828; border-color:#ffcdd2; }
+
+        /* ── Settings card ── */
+        .settings-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 2px 8px rgba(30,60,120,.05);
+            margin-bottom: 16px;
+            overflow: hidden;
+            max-width: 700px;
+        }
+
+        .card-header {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; gap: 10px;
+            background: var(--card-bg);
+        }
+
+        .card-header-icon { font-size: 1.2rem; }
+
+        .card-header-text h2 {
+            font-size: .88rem; font-weight: 700;
+            color: var(--text); letter-spacing: -.1px;
+        }
+        .card-header-text p {
+            font-size: .75rem; color: var(--text-muted);
+            font-weight: 500; margin-top: 2px;
+        }
+
+        .card-body {
+            padding: 0;
+        }
+
+        /* ── Setting row ── */
+        .setting-row {
+            display: flex; align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
+            gap: 1.5rem;
+        }
+        .setting-row:last-child { border-bottom: none; }
+
+        .setting-label h3 {
+            font-size: .9rem; font-weight: 600;
+            color: var(--text); margin-bottom: 2px;
+        }
+        .setting-label p {
+            font-size: .75rem; color: var(--text-muted); font-weight: 500;
+        }
+
+        /* ── Number stepper ── */
+        .num-input {
+            display: flex; align-items: center; gap: 6px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 4px 8px;
+            flex-shrink: 0;
+        }
+
+        .num-input input[type="number"] {
+            width: 46px; border: none; background: transparent;
+            font-family: 'Space Mono', monospace;
+            font-size: 1rem; font-weight: 700;
+            color: var(--navy); text-align: center;
+        }
+        .num-input input:focus { outline: none; }
+        .num-input input::-webkit-outer-spin-button,
+        .num-input input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+        .num-btn {
+            width: 26px; height: 26px;
+            border: 1px solid var(--border); border-radius: 6px;
+            background: #fff; font-size: .95rem; font-weight: 700;
+            cursor: pointer; display: flex;
+            align-items: center; justify-content: center;
+            color: var(--text-muted);
+            transition: background .1s;
+            flex-shrink: 0;
+        }
+        .num-btn:hover { background: var(--bg); color: var(--navy); }
+
+        .unit-label { font-size: .72rem; color: var(--text-muted); font-weight: 500; }
+
+        /* ── Toggle ── */
+        .toggle {
+            position: relative; width: 46px; height: 26px; flex-shrink: 0;
+        }
+        .toggle input { display: none; }
+        .toggle-track {
+            position: absolute; inset: 0;
+            background: var(--border); border-radius: 99px;
+            cursor: pointer;
+            transition: background .2s;
+            border: 1px solid #c8d3e8;
+        }
+        .toggle-track::after {
+            content: ''; position: absolute;
+            left: 3px; top: 50%; transform: translateY(-50%);
+            width: 18px; height: 18px; border-radius: 50%;
+            background: #fff;
+            transition: left .2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,.15);
+        }
+        .toggle input:checked + .toggle-track { background: var(--accent); border-color: #3a7ee8; }
+        .toggle input:checked + .toggle-track::after { left: 24px; }
+
+        /* ── Slider ── */
+        .slider-wrap {
+            display: flex; align-items: center; gap: 10px;
+            flex-shrink: 0; width: 180px;
+        }
+        .slider-wrap input[type="range"] { flex: 1; accent-color: var(--accent); }
+        .slider-display {
+            font-family: 'Space Mono', monospace;
+            font-size: .85rem; font-weight: 700;
+            color: var(--navy); min-width: 34px; text-align: right;
+        }
+
+        /* ── Radio chips ── */
+        .chip-group { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
+        .chip-group input[type="radio"] { display: none; }
+        .chip-group label {
+            padding: 4px 12px;
+            border: 1px solid var(--border); border-radius: 99px;
+            font-size: .8rem; font-weight: 600;
+            color: var(--text-muted); cursor: pointer;
+            background: var(--card-bg);
+            transition: all .15s;
+        }
+        .chip-group input:checked + label {
+            background: var(--navy); border-color: var(--navy-dark);
+            color: #fff;
+        }
+
+        /* ── API key ── */
+        .api-key-row {
+            display: flex; gap: 10px; align-items: center;
+        }
+        .api-key-value {
+            flex: 1; padding: 8px 12px;
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: 'Space Mono', monospace;
+            font-size: .75rem; color: var(--text-muted);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .copy-btn {
+            padding: 7px 14px;
+            background: var(--card-bg); border: 1px solid var(--border);
+            border-radius: 8px; font-size: .8rem; font-weight: 600;
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer; flex-shrink: 0;
+            transition: background .1s, color .1s;
+            color: var(--text-muted);
+        }
+        .copy-btn:hover { background: var(--bg); color: var(--navy); }
+
+        /* ── Save button ── */
+        .save-btn {
+            display: block; max-width: 700px; width: 100%;
+            margin-top: 4px; padding: 11px;
+            background: var(--navy); color: #fff;
+            border: none; border-radius: 8px;
+            font-size: .92rem; font-weight: 700;
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer; letter-spacing: .2px;
+            transition: background .15s;
+        }
+        .save-btn:hover  { background: var(--navy-light); }
+        .save-btn:active { background: var(--navy-dark); }
+
+        @media (max-width: 700px) {
+            .setting-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .slider-wrap { width: 100%; }
+            .chip-group  { flex-wrap: wrap; }
+            main { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo-ring"><span>LI</span></div>
+    <h1>LockIn Dashboard</h1>
+    <div class="header-actions">
+        <span style="font-size:.82rem;font-weight:600;color:var(--text-muted);padding:0 8px">{{ username }}</span>
+        <a href="/" class="hdr-btn">← Dashboard</a>
+        <form method="POST" action="/logout" style="display:inline">
+            <button class="hdr-btn" type="submit">Sign out</button>
+        </form>
+    </div>
+</header>
+
+<div class="layout">
+    <aside>
+        <a href="/" class="nav-item">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+            Home
+        </a>
+        <div class="nav-item active">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13.78 15.3 19.78 21.3 21.89 19.14 15.89 13.14 13.78 15.3M17.5 10.1C17.11 10.1 16.69 10.05 16.36 9.96L4.97 21.35 2.86 19.24 10.21 11.89 8.1 9.78 7.39 10.5 5.97 9.07 7.75 7.29C8.90 6.04 10.61 5.55 12.19 5.95L9.5 8.64 12.36 11.5 15.06 8.8C15.5 9.05 16 10.1 17.5 10.1M13.89 3.29 11.78 5.4 13.19 6.82 11.78 8.24 13.19 9.65 16.07 6.77C16.06 6.12 13.89 3.29 13.89 3.29Z"/></svg>
+            Config
+        </div>
+    </aside>
+
+    <main>
+        <div class="page-title">Configuration</div>
+
+        {% with messages = get_flashed_messages(category_filter=['success']) %}
+            {% if messages %}<div class="flash success">✓ {{ messages[0] }}</div>{% endif %}
+        {% endwith %}
+        {% with messages = get_flashed_messages(category_filter=['error']) %}
+            {% if messages %}<div class="flash error">{{ messages[0] }}</div>{% endif %}
+        {% endwith %}
+
+        <form method="POST" action="/settings">
+
+            <!-- Pomodoro Timer -->
+            <div class="settings-card">
+                <div class="card-header">
+                    <span class="card-header-icon">⏱️</span>
+                    <div class="card-header-text">
+                        <h2>Pomodoro Timer</h2>
+                        <p>Controls session lengths on your device</p>
+                    </div>
+                </div>
+                <div class="card-body">
+
+                    <div class="setting-row">
+                        <div class="setting-label">
+                            <h3>Focus session</h3>
+                            <p>How long each study block lasts</p>
+                        </div>
+                        <div class="num-input">
+                            <button type="button" class="num-btn" onclick="step('session_duration_mins',-5)">−</button>
+                            <input type="number" id="session_duration_mins" name="session_duration_mins"
+                                   value="{{ settings.session_duration_mins }}" min="5" max="90">
+                            <button type="button" class="num-btn" onclick="step('session_duration_mins',5)">+</button>
+                            <span class="unit-label">min</span>
+                        </div>
+                    </div>
+
+                    <div class="setting-row">
+                        <div class="setting-label">
+                            <h3>Short break</h3>
+                            <p>Break between sessions</p>
+                        </div>
+                        <div class="num-input">
+                            <button type="button" class="num-btn" onclick="step('short_break_mins',-1)">−</button>
+                            <input type="number" id="short_break_mins" name="short_break_mins"
+                                   value="{{ settings.short_break_mins }}" min="1" max="30">
+                            <button type="button" class="num-btn" onclick="step('short_break_mins',1)">+</button>
+                            <span class="unit-label">min</span>
+                        </div>
+                    </div>
+
+                    <div class="setting-row">
+                        <div class="setting-label">
+                            <h3>Long break</h3>
+                            <p>Break after every few sessions</p>
+                        </div>
+                        <div class="num-input">
+                            <button type="button" class="num-btn" onclick="step('long_break_mins',-5)">−</button>
+                            <input type="number" id="long_break_mins" name="long_break_mins"
+                                   value="{{ settings.long_break_mins }}" min="5" max="60">
+                            <button type="button" class="num-btn" onclick="step('long_break_mins',5)">+</button>
+                            <span class="unit-label">min</span>
+                        </div>
+                    </div>
+
+                    <div class="setting-row">
+                        <div class="setting-label">
+                            <h3>Sessions before long break</h3>
+                            <p>How many focus blocks before a long rest</p>
+                        </div>
+                        <div class="num-input">
+                            <button type="button" class="num-btn" onclick="step('sessions_before_long_break',-1)">−</button>
+                            <input type="number" id="sessions_before_long_break" name="sessions_before_long_break"
+                                   value="{{ settings.sessions_before_long_break }}" min="1" max="10">
+                            <button type="button" class="num-btn" onclick="step('sessions_before_long_break',1)">+</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Detection -->
+            <div class="settings-card">
+                <div class="card-header">
+                    <span class="card-header-icon">📷</span>
+                    <div class="card-header-text">
+                        <h2>Detection</h2>
+                        <p>What LockIn watches for on your device</p>
+                    </div>
+                </div>
+                <div class="card-body">
+
+                    <div class="setting-row">
+                        <div class="setting-label">
+                            <h3>Phone detection</h3>
+                            <p>Alert when a phone is detected in frame</p>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" name="phone_detection_enabled"
+                                   {% if settings.phone_detection_enabled %}checked{% endif %}>
+                            <span class="toggle-track"></span>
+                        </label>
+                    </div>
+
+                    <div class="setting-row">
+                        <div class="setting-label">
+                            <h3>Posture detection</h3>
+                            <p>Alert when slouching or bad posture is detected</p>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" name="posture_detection_enabled"
+                                   {% if settings.posture_detection_enabled %}checked{% endif %}>
+                            <span class="toggle-track"></span>
+                        </label>
+                    </div>
+
+                    <div class="setting-row">
+                        <div class="setting-label">
+                            <h3>Phone sensitivity</h3>
+                            <p>Lower = triggers easily, higher = stricter</p>
+                        </div>
+                        <div class="slider-wrap">
+                            <input type="range" id="phone_sensitivity" name="phone_sensitivity"
+                                   min="0.1" max="1.0" step="0.05"
+                                   value="{{ settings.phone_sensitivity }}"
+                                   oninput="document.getElementById('sens-display').textContent = Math.round(this.value*100)+'%'">
+                            <span class="slider-display" id="sens-display">{{ (settings.phone_sensitivity * 100) | int }}%</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Alerts -->
+            <div class="settings-card">
+                <div class="card-header">
+                    <span class="card-header-icon">🔔</span>
+                    <div class="card-header-text">
+                        <h2>Alerts</h2>
+                        <p>How LockIn gets your attention</p>
+                    </div>
+                </div>
+                <div class="card-body">
+
+                    <div class="setting-row">
+                        <div class="setting-label">
+                            <h3>Alert type</h3>
+                            <p>How the device notifies you</p>
+                        </div>
+                        <div class="chip-group">
+                            <input type="radio" name="alert_type" id="alert-visual" value="visual"
+                                   {% if settings.alert_type == 'visual' %}checked{% endif %}>
+                            <label for="alert-visual">👁 Visual</label>
+
+                            <input type="radio" name="alert_type" id="alert-audio" value="audio"
+                                   {% if settings.alert_type == 'audio' %}checked{% endif %}>
+                            <label for="alert-audio">🔊 Audio</label>
+
+                            <input type="radio" name="alert_type" id="alert-both" value="both"
+                                   {% if settings.alert_type == 'both' %}checked{% endif %}>
+                            <label for="alert-both">Both</label>
+                        </div>
+                    </div>
+
+                    <div class="setting-row">
+                        <div class="setting-label">
+                            <h3>Alert cooldown</h3>
+                            <p>Minimum seconds between repeated alerts</p>
+                        </div>
+                        <div class="num-input">
+                            <button type="button" class="num-btn" onclick="step('alert_cooldown_secs',-5)">−</button>
+                            <input type="number" id="alert_cooldown_secs" name="alert_cooldown_secs"
+                                   value="{{ settings.alert_cooldown_secs }}" min="5" max="300">
+                            <button type="button" class="num-btn" onclick="step('alert_cooldown_secs',5)">+</button>
+                            <span class="unit-label">sec</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <button type="submit" class="save-btn">Save Settings</button>
+        </form>
+
+        <!-- Device API Key -->
+        <div class="settings-card" style="margin-top:16px">
+            <div class="card-header">
+                <span class="card-header-icon">🔑</span>
+                <div class="card-header-text">
+                    <h2>Device API Key</h2>
+                    <p>Set this on your Pi to sync with your account</p>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="setting-row">
+                    <div class="api-key-row" style="width:100%">
+                        <div class="api-key-value" id="api-key-value">{{ current_user.api_key }}</div>
+                        <button type="button" class="copy-btn" onclick="copyKey()">Copy</button>
+                    </div>
+                </div>
+                <div class="setting-row" style="border-top:none;padding-top:0">
+                    <p style="font-size:.75rem;color:var(--text-muted);font-weight:500">
+                        Keep this private. The Pi sends session data and fetches settings using the
+                        <code style="font-family:'Space Mono',monospace;background:var(--bg);padding:1px 5px;border-radius:4px;font-size:.72rem">X-API-Key</code> header.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<script>
+    function step(id, delta) {
+        const el = document.getElementById(id);
+        el.value = Math.min(parseInt(el.max)||9999, Math.max(parseInt(el.min)||0, parseInt(el.value) + delta));
+    }
+
+    function copyKey() {
+        navigator.clipboard.writeText(document.getElementById('api-key-value').textContent.trim()).then(() => {
+            const btn = document.querySelector('.copy-btn');
+            const orig = btn.textContent;
+            btn.textContent = 'Copied!';
+            btn.style.color = '#166534';
+            setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 2000);
+        });
+    }
+</script>
+
+</body>
+</html>
