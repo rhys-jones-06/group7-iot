@@ -1,0 +1,3 @@
+[lockin]
+server_url = https://lockin-server-cm2211-group7.apps.containers.cs.cf.ac.uk
+api_key    = YOUR_API_KEY_HERE

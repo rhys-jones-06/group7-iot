@@ -525,22 +525,44 @@
             <div class="card-header">
                 <span class="card-header-icon">🔑</span>
                 <div class="card-header-text">
-                    <h2>Device API Key</h2>
-                    <p>Set this on your Pi to sync with your account</p>
+                    <h2>Pi Device Setup</h2>
+                    <p>Download your config file and copy it to your Pi's SD card</p>
                 </div>
             </div>
             <div class="card-body">
+                <!-- Step 1: download -->
                 <div class="setting-row">
-                    <div class="api-key-row" style="width:100%">
+                    <div>
+                        <div style="font-weight:700;font-size:.88rem;margin-bottom:4px">Step 1 — Download config</div>
+                        <div style="font-size:.78rem;color:var(--text-muted)">Contains your API key and server URL pre-filled.</div>
+                    </div>
+                    <a href="/api/provision/config" class="copy-btn" style="text-decoration:none;white-space:nowrap">⬇ Download lockin.conf</a>
+                </div>
+                <!-- Step 2: copy to SD -->
+                <div class="setting-row">
+                    <div>
+                        <div style="font-weight:700;font-size:.88rem;margin-bottom:4px">Step 2 — Copy to Pi SD card</div>
+                        <div style="font-size:.78rem;color:var(--text-muted)">Plug the SD card into your computer and drop the file into the <code style="font-family:'Space Mono',monospace;background:var(--bg);padding:1px 4px;border-radius:3px">/boot/</code> folder. No SSH needed.</div>
+                    </div>
+                </div>
+                <!-- Step 3: run setup -->
+                <div class="setting-row" style="border-bottom:none">
+                    <div style="width:100%">
+                        <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">Step 3 — First-time Pi setup (once only)</div>
+                        <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px">SSH into your Pi and run:</div>
+                        <div style="font-family:'Space Mono',monospace;font-size:.75rem;background:var(--navy);color:#e2e8f0;padding:10px 14px;border-radius:8px;word-break:break-all">
+                            curl -sL https://raw.githubusercontent.com/c24057633/group-7-iot/appstart/pi/setup.sh | sudo bash
+                        </div>
+                        <div style="font-size:.75rem;color:var(--text-muted);margin-top:6px">After that the Pi starts automatically on every boot — no further setup needed.</div>
+                    </div>
+                </div>
+                <!-- Raw key -->
+                <div class="setting-row" style="border-top:1px solid var(--border);margin-top:8px">
+                    <div style="font-weight:600;font-size:.82rem">Your API Key</div>
+                    <div class="api-key-row" style="flex:1;margin-left:16px">
                         <div class="api-key-value" id="api-key-value">{{ current_user.api_key }}</div>
                         <button type="button" class="copy-btn" onclick="copyKey()">Copy</button>
                     </div>
-                </div>
-                <div class="setting-row" style="border-top:none;padding-top:0">
-                    <p style="font-size:.75rem;color:var(--text-muted);font-weight:500">
-                        Keep this private. The Pi sends session data and fetches settings using the
-                        <code style="font-family:'Space Mono',monospace;background:var(--bg);padding:1px 5px;border-radius:4px;font-size:.72rem">X-API-Key</code> header.
-                    </p>
                 </div>
             </div>
         </div>

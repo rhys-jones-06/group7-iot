@@ -7,7 +7,7 @@ Web settings page (cookie auth) and device settings API (X-API-Key auth).
 
 import logging
 from typing import Tuple, Union, Dict, Any
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, Response
 from flask_login import login_required, current_user
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -97,3 +97,23 @@ def get_settings_api() -> Tuple[Dict[str, Any], int]:
 
     settings = _get_or_create_settings(user.id)
     return jsonify(settings.to_dict()), 200
+
+
+@settings_bp.route('/api/provision/config', methods=['GET'])
+@login_required
+def download_pi_config() -> Response:
+    """
+    Return a ready-to-use lockin.conf file pre-filled with the user's
+    API key and the server URL. The user copies this to /boot/ on their Pi.
+    """
+    server_url = request.host_url.rstrip('/')
+    content = (
+        f"[lockin]\n"
+        f"server_url = {server_url}\n"
+        f"api_key    = {current_user.api_key}\n"
+    )
+    return Response(
+        content,
+        mimetype='text/plain',
+        headers={'Content-Disposition': 'attachment; filename=lockin.conf'}
+    )
