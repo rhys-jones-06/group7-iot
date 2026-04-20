@@ -19,7 +19,7 @@ import logging
 import threading
 import time
 
-import RPi.GPIO as GPIO
+import pigpio
 import grovepi
 
 from config import BUZZER_PIN, LED_PIN, MOTOR_PIN, BUZZER_VOLUME
@@ -27,31 +27,25 @@ from state import GlobalState
 
 logger = logging.getLogger(__name__)
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(MOTOR_PIN, GPIO.OUT)
+pi = pigpio.pi()
+if not pi.connected:
+    raise RuntimeError("pigpio daemon not running")
 
 grovepi.pinMode(BUZZER_PIN, "OUTPUT")
 
-pwm = GPIO.PWM(MOTOR_PIN, 50)
-
 
 def set_angle(angle: float) -> None:
-    duty = 2 + (angle / 18)
-    pwm.ChangeDutyCycle(duty)
-    # very short delay, just enough for servo to respond
-    # 0.005 produces no output, so does 0.01, so 0.06 seems the best to produce a good jitter.
-    time.sleep(0.006)
+    pulse = int(500 + (angle / 180.0) * 2000)
+    pi.set_servo_pulsewidth(MOTOR_PIN, pulse)
+    time.sleep(0.02)
 
 
 def vibrate(center: float = 90, amplitude: float = 3, cycles: int = 50) -> None:
     """Vibrate the servo around a centre angle, by a given amplitude, for a number of cycles."""
 
-    # 7.5 duty cycle is about center position (90 degrees)
-    pwm.start(7.5)
     for _ in range(cycles):
         set_angle(center + amplitude)
         set_angle(center - amplitude)
-    pwm.stop()
 
 
 # level 1: 0–10s  - LED flash
@@ -84,3 +78,6 @@ def start_alert_feedback(state: GlobalState, lock: threading.Lock) -> None:
                 time.sleep(0.5)
                 grovepi.digitalWrite(LED_PIN, 0)
         time.sleep(0.5)
+
+    pi.set_servo_pulsewidth(MOTOR_PIN, 0)
+    pi.stop()
