@@ -1,84 +1,109 @@
-"""
-LockIn Pi — Main Session Loop
-CM2211 Group 07 — Internet of Things
-
-Flow:
-  1. Read /boot/lockin.conf  →  get server URL + API key
-  2. Fetch settings from server (Pomodoro durations, detection toggles, etc.)
-  3. Run Pomodoro sessions indefinitely:
-       - Start timer
-       - Detect phone / posture at regular intervals
-       - Submit completed session to server
-       - Break, then repeat
-
-Detection stubs (detection/phone.py, detection/posture.py) are called here;
-replace the stub return values with your actual model inference.
-"""
+# ===========================================================================
+# LockIn — pi/main.py
+# CM2211 Group 07 — Internet of Things
+#
+# Integrates threaded YOLO camera/posture detection with the
+# Pomodoro session loop and server sync.
+#
+# Flow:
+#   1. Start camera + posture detection threads (continuous, background)
+#   2. Read /boot/lockin.conf → connect to server
+#   3. Wait for posture calibration
+#   4. Run Pomodoro sessions indefinitely:
+#        - Read phone/posture state from detection threads
+#        - Issue hardware alerts (buzzer) on distraction
+#        - Submit completed session to server
+#        - Break, then repeat
+# ===========================================================================
 
 import logging
+import signal
+import threading
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import config
 import client as lockin_client
+from detection.camera import start_phone_detection
+from detection.posture import start_posture_detection
 
-# ── Detection imports ────────────────────────────────────────────────────────
-# These modules should expose:
-#   phone.detect(frame, sensitivity) -> Optional[float]   (confidence, or None)
-#   posture.detect(frame)            -> bool               (True = bad posture)
 try:
-    from detection import phone as phone_det
-    from detection import posture as posture_det
-    CAMERA_AVAILABLE = True
-except ImportError:
-    CAMERA_AVAILABLE = False
+    import grovepi
+    grovepi.pinMode(config.BUZZER_PIN, "OUTPUT")
+    GROVEPI_AVAILABLE = True
+except Exception:
+    GROVEPI_AVAILABLE = False
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, config.LOG_LEVEL, logging.INFO),
     format='%(asctime)s [%(levelname)s] %(message)s',
     datefmt='%H:%M:%S',
 )
 logger = logging.getLogger(__name__)
 
-DETECTION_INTERVAL_SECS = 2   # how often to run detection during a session
+# Shared state — written by detection threads, read by session loop
+state_lock = threading.Lock()
+shared_state = {
+    "running": True,
+    "phone_detected": False,
+    "phone_confidence": 0.0,
+    "latest_frame": None,
+    "person_head_y": None,
+    "posture_status": "starting",
+    "head_drop_pct": 0.0,
+}
+
+POLL_INTERVAL_SECS = 1.0
 
 
-# ── Camera helper ─────────────────────────────────────────────────────────────
+def _handle_shutdown(sig, frame):
+    with state_lock:
+        shared_state["running"] = False
 
-def _get_frame():
-    """Capture a single frame from the Pi camera. Returns None if unavailable."""
-    try:
-        import cv2
-        cap = cv2.VideoCapture(0)
-        ok, frame = cap.read()
-        cap.release()
-        return frame if ok else None
-    except Exception:
-        return None
+signal.signal(signal.SIGINT, _handle_shutdown)
+signal.signal(signal.SIGTERM, _handle_shutdown)
 
-
-# ── Alert helper ──────────────────────────────────────────────────────────────
 
 def _alert(alert_type: str, message: str) -> None:
-    """Issue an alert (LED flash, buzzer, or both)."""
+    """Trigger buzzer alert based on the user's configured alert type."""
     logger.info(f'ALERT [{alert_type}]: {message}')
-    # TODO: wire up GPIO for LED / buzzer based on alert_type
+    if not GROVEPI_AVAILABLE:
+        return
+    try:
+        if alert_type in ('audio', 'both'):
+            grovepi.analogWrite(config.BUZZER_PIN, 1)
+            time.sleep(0.5)
+            grovepi.analogWrite(config.BUZZER_PIN, 0)
+    except Exception as e:
+        logger.warning(f'Alert hardware error: {e}')
 
 
-# ── Pomodoro session ──────────────────────────────────────────────────────────
+def _wait_for_calibration() -> None:
+    """Block until the posture thread finishes calibrating."""
+    logger.info('Waiting for posture calibration — sit upright...')
+    while True:
+        with state_lock:
+            status = shared_state.get('posture_status', 'starting')
+            running = shared_state.get('running', True)
+        if not running:
+            return
+        if status not in ('starting', 'calibrating'):
+            break
+        time.sleep(1.0)
+    logger.info('Posture calibrated — ready.')
+
 
 def run_session(
     settings: Dict[str, Any],
     client: lockin_client.LockInClient,
     session_number: int,
 ) -> None:
-    duration_secs  = settings['session_duration_mins'] * 60
-    sensitivity    = settings.get('phone_sensitivity', 0.7)
-    phone_enabled  = settings.get('phone_detection_enabled', True)
+    duration_secs   = settings['session_duration_mins'] * 60
+    phone_enabled   = settings.get('phone_detection_enabled', True)
     posture_enabled = settings.get('posture_detection_enabled', True)
-    alert_type     = settings.get('alert_type', 'both')
-    cooldown_secs  = settings.get('alert_cooldown_secs', 30)
+    alert_type      = settings.get('alert_type', 'both')
+    cooldown_secs   = settings.get('alert_cooldown_secs', 30)
 
     logger.info(f'─── Session {session_number} starting ({settings["session_duration_mins"]} min) ───')
 
@@ -88,50 +113,43 @@ def run_session(
     elapsed = 0.0
 
     while elapsed < duration_secs:
-        time.sleep(DETECTION_INTERVAL_SECS)
+        time.sleep(POLL_INTERVAL_SECS)
         elapsed = time.time() - start_time
         remaining = max(0, duration_secs - elapsed)
+
+        with state_lock:
+            if not shared_state.get('running', True):
+                break
+            phone_detected  = shared_state['phone_detected']
+            phone_confidence = shared_state['phone_confidence']
+            posture_status  = shared_state['posture_status']
 
         if int(elapsed) % 60 == 0 and int(elapsed) > 0:
             logger.info(f'  {int(remaining // 60)}m remaining')
 
-        if not CAMERA_AVAILABLE:
-            continue
-
-        frame = _get_frame()
-        if frame is None:
-            continue
-
         now = time.time()
         can_alert = (now - last_alert_time) >= cooldown_secs
 
-        # Phone detection
-        if phone_enabled:
-            confidence: Optional[float] = phone_det.detect(frame, sensitivity)
-            if confidence is not None:
-                ts = datetime.utcnow().isoformat()
-                distractions.append({'timestamp': ts, 'type': 'phone', 'confidence': confidence})
-                logger.info(f'  Phone detected (confidence={confidence:.2f})')
-                if can_alert:
-                    _alert(alert_type, 'Put your phone down!')
-                    last_alert_time = now
+        # F2: Phone distraction
+        if phone_enabled and phone_detected:
+            ts = datetime.utcnow().isoformat()
+            distractions.append({'timestamp': ts, 'type': 'phone', 'confidence': phone_confidence})
+            logger.info(f'  Phone detected (confidence={phone_confidence:.2f})')
+            if can_alert:
+                _alert(alert_type, 'Put your phone down!')
+                last_alert_time = now
 
-        # Posture detection
-        if posture_enabled:
-            bad_posture: bool = posture_det.detect(frame)
-            if bad_posture:
-                ts = datetime.utcnow().isoformat()
-                distractions.append({'timestamp': ts, 'type': 'posture', 'confidence': None})
-                logger.info('  Bad posture detected')
-                if can_alert:
-                    _alert(alert_type, 'Check your posture!')
-                    last_alert_time = now
+        # F3: Posture distraction
+        if posture_enabled and posture_status == 'bad':
+            ts = datetime.utcnow().isoformat()
+            distractions.append({'timestamp': ts, 'type': 'posture', 'confidence': None})
+            logger.info('  Bad posture detected')
+            if can_alert:
+                _alert(alert_type, 'Check your posture!')
+                last_alert_time = now
 
-    # ── Session complete ──────────────────────────────────────────────────
     actual_duration = (time.time() - start_time) / 60
     distraction_count = len(distractions)
-
-    # Focus score: 100 minus a penalty per distraction, scaled by session length
     penalty_per = 100 / max(settings['session_duration_mins'], 1)
     focus_score = max(0.0, 100.0 - distraction_count * penalty_per)
 
@@ -144,41 +162,72 @@ def run_session(
         duration_mins=actual_duration,
         distraction_count=distraction_count,
         focus_score=focus_score,
-        streak_days=0,          # server computes authoritative streak
+        streak_days=0,  # server computes authoritative streak
         distractions=distractions,
     )
 
 
 def run_break(duration_mins: int, label: str) -> None:
     logger.info(f'Break: {label} ({duration_mins} min)')
-    time.sleep(duration_mins * 60)
+    end = time.time() + duration_mins * 60
+    while time.time() < end:
+        with state_lock:
+            if not shared_state.get('running', True):
+                return
+        time.sleep(5.0)
 
-
-# ── Main loop ─────────────────────────────────────────────────────────────────
 
 def main() -> None:
+    print()
+    print('=' * 65)
+    print('  LockIn — Pomodoro + Detection Mode')
+    print('  F2: Phone detection  |  F3: Posture detection')
+    print('  Sit properly and wait ~8 seconds (posture calibration)')
+    print('=' * 65)
+    print()
+
+    # Start detection threads
+    camera_thread = threading.Thread(
+        target=start_phone_detection,
+        args=(shared_state, state_lock),
+        daemon=True,
+    )
+    posture_thread = threading.Thread(
+        target=start_posture_detection,
+        args=(shared_state, state_lock),
+        daemon=True,
+    )
+    logger.info('Starting camera thread (F2)...')
+    camera_thread.start()
+    time.sleep(2.0)
+    logger.info('Starting posture thread (F3)...')
+    posture_thread.start()
+
+    # Connect to server
     cfg = config.load()
     logger.info(f'Connecting to {cfg["server_url"]}')
+    lockin = lockin_client.LockInClient(cfg['server_url'], cfg['api_key'])
 
-    client = lockin_client.LockInClient(cfg['server_url'], cfg['api_key'])
-
-    # Wait for network / server to be reachable
     retries = 0
-    while not client.ping():
+    while not lockin.ping():
         wait = min(30, 5 * (retries + 1))
-        logger.warning(f'Server unreachable, retrying in {wait}s…')
+        logger.warning(f'Server unreachable, retrying in {wait}s...')
         time.sleep(wait)
         retries += 1
 
-    settings = client.get_settings()
-    logger.info('Settings loaded. Starting LockIn session loop.')
+    settings = lockin.get_settings()
+    logger.info('Settings loaded.')
+
+    _wait_for_calibration()
 
     session_number = 1
     while True:
-        run_session(settings, client, session_number)
+        with state_lock:
+            if not shared_state.get('running', True):
+                break
 
-        # Refresh settings after each session (user may have changed them)
-        settings = client.get_settings()
+        run_session(settings, lockin, session_number)
+        settings = lockin.get_settings()
 
         sessions_before_long = settings.get('sessions_before_long_break', 4)
         if session_number % sessions_before_long == 0:
@@ -187,6 +236,14 @@ def main() -> None:
             run_break(settings['short_break_mins'], 'short break')
 
         session_number += 1
+
+    with state_lock:
+        shared_state['running'] = False
+
+    logger.info('Stopping...')
+    camera_thread.join(timeout=5.0)
+    posture_thread.join(timeout=5.0)
+    logger.info('Done.')
 
 
 if __name__ == '__main__':
