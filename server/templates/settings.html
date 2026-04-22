@@ -540,20 +540,41 @@
                 </div>
                 <!-- Step 2: copy to SD -->
                 <div class="setting-row">
-                    <div>
-                        <div style="font-weight:700;font-size:.88rem;margin-bottom:4px">Step 2 — Copy to Pi SD card</div>
-                        <div style="font-size:.78rem;color:var(--text-muted)">Plug the SD card into your computer and drop the file into the <code style="font-family:'Space Mono',monospace;background:var(--bg);padding:1px 4px;border-radius:3px">/boot/</code> folder. No SSH needed.</div>
+                    <div style="width:100%">
+                        <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">Step 2 — Prepare the SD card (no monitor needed)</div>
+                        <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px">Plug the SD card into your computer. The <code style="font-family:'Space Mono',monospace;background:var(--bg);padding:1px 4px;border-radius:3px">boot</code> partition appears as a USB drive on Windows and Mac. Drop these three files into it:</div>
+                        <div style="font-size:.78rem;display:flex;flex-direction:column;gap:6px">
+                            <div style="background:var(--bg);border-radius:6px;padding:8px 12px">
+                                <code style="font-family:'Space Mono',monospace;font-size:.75rem;color:var(--navy)">lockin.conf</code>
+                                <span style="color:var(--text-muted);margin-left:8px">— the file you just downloaded</span>
+                            </div>
+                            <div style="background:var(--bg);border-radius:6px;padding:8px 12px">
+                                <code style="font-family:'Space Mono',monospace;font-size:.75rem;color:var(--navy)">ssh</code>
+                                <span style="color:var(--text-muted);margin-left:8px">— an empty file with no extension (enables SSH on first boot)</span>
+                            </div>
+                            <div style="background:var(--bg);border-radius:6px;padding:8px 12px">
+                                <code style="font-family:'Space Mono',monospace;font-size:.75rem;color:var(--navy)">wpa_supplicant.conf</code>
+                                <span style="color:var(--text-muted);margin-left:8px">— your WiFi credentials (template below)</span>
+                            </div>
+                        </div>
+                        <div style="margin-top:8px;font-family:'Space Mono',monospace;font-size:.72rem;background:var(--navy);color:#e2e8f0;padding:10px 14px;border-radius:8px;white-space:pre">country=GB
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+network={
+    ssid="YOUR_WIFI_NAME"
+    psk="YOUR_WIFI_PASSWORD"
+}</div>
                     </div>
                 </div>
                 <!-- Step 3: run setup -->
                 <div class="setting-row" style="border-bottom:none">
                     <div style="width:100%">
-                        <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">Step 3 — First-time Pi setup (once only)</div>
-                        <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px">SSH into your Pi and run:</div>
+                        <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">Step 3 — First-time setup (once only)</div>
+                        <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px">Insert the SD card and power on the Pi. After ~60 seconds SSH in (<code style="font-family:'Space Mono',monospace;background:var(--bg);padding:1px 4px;border-radius:3px">ssh pi@lockin.local</code>) and run:</div>
                         <div style="font-family:'Space Mono',monospace;font-size:.75rem;background:var(--navy);color:#e2e8f0;padding:10px 14px;border-radius:8px;word-break:break-all">
                             curl -sL https://raw.githubusercontent.com/c24057633/group-7-iot/appstart/pi/setup.sh | sudo bash
                         </div>
-                        <div style="font-size:.75rem;color:var(--text-muted);margin-top:6px">After that the Pi starts automatically on every boot — no further setup needed.</div>
+                        <div style="font-size:.75rem;color:var(--text-muted);margin-top:6px">LockIn will start automatically on every boot after that — no monitor or keyboard ever needed.</div>
                     </div>
                 </div>
                 <!-- Raw key -->
