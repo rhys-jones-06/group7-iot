@@ -109,20 +109,39 @@ def run_session(
 
     distractions: List[Dict[str, Any]] = []
     last_alert_time: float = 0.0
-    start_time = time.time()
+    # F1: elapsed only advances while a person is in frame (camera-based presence)
     elapsed = 0.0
+    no_person_secs = 0.0
+    paused = False
+    NO_PERSON_PAUSE_THRESHOLD = 10.0  # seconds before pausing
 
     while elapsed < duration_secs:
         time.sleep(POLL_INTERVAL_SECS)
-        elapsed = time.time() - start_time
-        remaining = max(0, duration_secs - elapsed)
 
         with state_lock:
             if not shared_state.get('running', True):
                 break
-            phone_detected  = shared_state['phone_detected']
+            phone_detected   = shared_state['phone_detected']
             phone_confidence = shared_state['phone_confidence']
-            posture_status  = shared_state['posture_status']
+            posture_status   = shared_state['posture_status']
+
+        # F1: track consecutive seconds with no person detected
+        if posture_status == 'no person':
+            no_person_secs += POLL_INTERVAL_SECS
+            if no_person_secs >= NO_PERSON_PAUSE_THRESHOLD and not paused:
+                paused = True
+                logger.info('  No person detected — session paused')
+        else:
+            if paused:
+                paused = False
+                logger.info('  Person returned — session resumed')
+            no_person_secs = 0.0
+
+        if paused:
+            continue
+
+        elapsed += POLL_INTERVAL_SECS
+        remaining = max(0, duration_secs - elapsed)
 
         if int(elapsed) % 60 == 0 and int(elapsed) > 0:
             logger.info(f'  {int(remaining // 60)}m remaining')
@@ -148,7 +167,7 @@ def run_session(
                 _alert(alert_type, 'Check your posture!')
                 last_alert_time = now
 
-    actual_duration = (time.time() - start_time) / 60
+    actual_duration = elapsed / 60  # excludes time paused away from desk
     distraction_count = len(distractions)
     penalty_per = 100 / max(settings['session_duration_mins'], 1)
     focus_score = max(0.0, 100.0 - distraction_count * penalty_per)
