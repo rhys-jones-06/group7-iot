@@ -169,24 +169,20 @@ def get_heatmap() -> Tuple[Dict[str, Any], int]:
         }
     """
     try:
-        # Get all distractions for user (optimized join)
-        distractions = db.session.query(Distraction).join(Session).filter(
-            Session.user_id == current_user.id
-        ).all()
-
-        # Group by hour
+        # Single GROUP BY query — no Python-side row iteration
+        rows = (
+            db.session.query(
+                func.strftime('%H', Distraction.timestamp).label('hour'),
+                func.count(Distraction.id).label('count'),
+            )
+            .join(Session, Distraction.session_id == Session.id)
+            .filter(Session.user_id == current_user.id)
+            .group_by(func.strftime('%H', Distraction.timestamp))
+            .all()
+        )
         hour_counts = [0] * 24
-        for distraction in distractions:
-            try:
-                # Use datetime object directly if available
-                dt = distraction.timestamp
-                if isinstance(dt, str):
-                    dt = datetime.fromisoformat(dt.replace('Z', '+00:00'))
-                hour = dt.hour
-                hour_counts[hour] += 1
-            except (ValueError, AttributeError, TypeError) as e:
-                logger.warning(f"Failed to parse distraction timestamp: {e}")
-                continue
+        for row in rows:
+            hour_counts[int(row.hour)] = int(row.count)
 
         peak_hour = hour_counts.index(max(hour_counts)) if max(hour_counts) > 0 else 0
 
@@ -231,39 +227,38 @@ def get_trend() -> Tuple[Dict[str, Any], int]:
         }
     """
     try:
-        days = request.args.get('days', 14, type=int)
-        days = min(max(days, 1), 90)  # Clamp to 1-90 days
-        now = datetime.utcnow()
+        days   = min(max(request.args.get('days', 14, type=int), 1), 90)
+        now    = datetime.utcnow()
+        cutoff = now - timedelta(days=days)
 
+        # Single GROUP BY query replacing the previous N*2 per-day loop
+        rows = (
+            db.session.query(
+                func.strftime('%Y-%m-%d', Session.timestamp).label('date'),
+                func.avg(Session.focus_score).label('avg_focus'),
+                func.count(Session.id).label('session_count'),
+            )
+            .filter(
+                Session.user_id == current_user.id,
+                Session.timestamp >= cutoff,
+            )
+            .group_by(func.strftime('%Y-%m-%d', Session.timestamp))
+            .all()
+        )
+        row_map = {row.date: row for row in rows}
+
+        # Build full date range, filling zeros for days with no sessions
         trend = []
-        for i in range(days):
-            date = (now - timedelta(days=i)).date()
-            date_start = datetime.combine(date, datetime.min.time())
-            date_end = date_start + timedelta(days=1)
-
-            # Use optimized aggregation queries
-            avg_focus = db.session.query(func.avg(Session.focus_score)).filter(
-                Session.user_id == current_user.id,
-                Session.timestamp >= date_start,
-                Session.timestamp < date_end
-            ).scalar() or 0.0
-
-            session_count = db.session.query(func.count(Session.id)).filter(
-                Session.user_id == current_user.id,
-                Session.timestamp >= date_start,
-                Session.timestamp < date_end
-            ).scalar() or 0
-
+        for i in range(days - 1, -1, -1):
+            date_str = (now - timedelta(days=i)).date().isoformat()
+            row      = row_map.get(date_str)
             trend.append({
-                'date': date.isoformat(),
-                'avg_focus_score': round(float(avg_focus), 1),
-                'session_count': int(session_count)
+                'date':            date_str,
+                'avg_focus_score': round(float(row.avg_focus), 1) if row else 0.0,
+                'session_count':   int(row.session_count)         if row else 0,
             })
 
-        # Reverse to show oldest first
-        trend.reverse()
         logger.debug(f"Trend generated for user {current_user.id}, {days} days")
-
         return jsonify({'trend': trend}), 200
     except SQLAlchemyError as e:
         logger.error(f"Database error in get_trend: {e}")
@@ -419,6 +414,31 @@ def get_breakdown() -> Tuple[Dict[str, Any], int]:
         return jsonify({'error': 'database_error'}), 500
     except Exception as e:
         logger.error(f"Unexpected error in get_breakdown: {e}")
+        return jsonify({'error': 'internal_error'}), 500
+
+
+@dashboard_bp.route('/pet', methods=['GET'])
+@login_required
+def get_pet() -> Tuple[Dict[str, Any], int]:
+    """Return the current user's virtual pet state (F8)."""
+    try:
+        user = db.session.get(User, current_user.id)
+        health    = round(float(user.pet_health    or 85.0), 1)
+        happiness = round(float(user.pet_happiness or 90.0), 1)
+        if happiness >= 80:
+            mood, emoji = 'happy',   '🐊'
+        elif happiness >= 50:
+            mood, emoji = 'content', '😐'
+        else:
+            mood, emoji = 'sad',     '😢'
+        return jsonify({
+            'health':    health,
+            'happiness': happiness,
+            'mood':      mood,
+            'emoji':     emoji,
+        }), 200
+    except Exception as e:
+        logger.error(f"Error in get_pet: {e}")
         return jsonify({'error': 'internal_error'}), 500
 
 
