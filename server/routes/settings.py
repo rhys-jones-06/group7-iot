@@ -99,6 +99,37 @@ def get_settings_api() -> Tuple[Dict[str, Any], int]:
     return jsonify(settings.to_dict()), 200
 
 
+@settings_bp.route('/api/provision/firstrun', methods=['GET'])
+@login_required
+def download_firstrun() -> Response:
+    """
+    Generate a lockin-firstrun.sh that the user appends to the Pi Imager
+    firstrun.sh on the boot partition. Runs setup.sh automatically on first
+    boot so no SSH is ever needed.
+    """
+    server_url = request.host_url.rstrip('/')
+    content = (
+        "#!/bin/bash\n"
+        "# LockIn first-boot installer — appended to Pi Imager's firstrun.sh\n"
+        "# Waits for network then installs LockIn automatically.\n"
+        "set +e\n"
+        "\n"
+        "# Wait for WiFi\n"
+        "for i in $(seq 1 30); do\n"
+        "    ping -c1 -W2 8.8.8.8 >/dev/null 2>&1 && break\n"
+        "    sleep 2\n"
+        "done\n"
+        "\n"
+        "# Install LockIn\n"
+        "curl -sL https://raw.githubusercontent.com/c24057633/group-7-iot/appstart/pi/setup.sh | bash\n"
+    )
+    return Response(
+        content,
+        mimetype='text/plain',
+        headers={'Content-Disposition': 'attachment; filename=lockin-firstrun.sh'}
+    )
+
+
 @settings_bp.route('/api/provision/config', methods=['GET'])
 @login_required
 def download_pi_config() -> Response:

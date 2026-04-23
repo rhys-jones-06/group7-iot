@@ -155,25 +155,11 @@ def ingest_session() -> Tuple[Dict[str, Any], int]:
                 logger.warning(f"Skipped malformed distraction: {e}")
                 continue
 
-        # F8: update virtual pet based on focus score
-        score = validated['focus_score']
-        if score >= 80:
-            happiness_delta, health_delta = +5, +2
-        elif score >= 60:
-            happiness_delta, health_delta = +3, +1
-        elif score >= 40:
-            happiness_delta, health_delta = +1,  0
-        else:
-            happiness_delta, health_delta = -3, -2
-
-        user.pet_happiness = max(0.0, min(100.0, (user.pet_happiness or 90.0) + happiness_delta))
-        user.pet_health    = max(0.0, min(100.0, (user.pet_health    or 85.0) + health_delta))
-
         db.session.commit()
         logger.info(
             f"Session {session.id} ingested for user {user.id} "
             f"({validated['duration_mins']}min, {distraction_count} distractions, "
-            f"pet happiness={user.pet_happiness:.0f} health={user.pet_health:.0f})"
+            f"focus={validated['focus_score']}, streak={streak})"
         )
 
         return jsonify({'session_id': session.id}), 201

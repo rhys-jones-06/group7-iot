@@ -417,30 +417,6 @@ def get_breakdown() -> Tuple[Dict[str, Any], int]:
         return jsonify({'error': 'internal_error'}), 500
 
 
-@dashboard_bp.route('/pet', methods=['GET'])
-@login_required
-def get_pet() -> Tuple[Dict[str, Any], int]:
-    """Return the current user's virtual pet state (F8)."""
-    try:
-        user = db.session.get(User, current_user.id)
-        health    = round(float(user.pet_health    or 85.0), 1)
-        happiness = round(float(user.pet_happiness or 90.0), 1)
-        if happiness >= 80:
-            mood, emoji = 'happy',   '🐊'
-        elif happiness >= 50:
-            mood, emoji = 'content', '😐'
-        else:
-            mood, emoji = 'sad',     '😢'
-        return jsonify({
-            'health':    health,
-            'happiness': happiness,
-            'mood':      mood,
-            'emoji':     emoji,
-        }), 200
-    except Exception as e:
-        logger.error(f"Error in get_pet: {e}")
-        return jsonify({'error': 'internal_error'}), 500
-
 
 @dashboard_bp.route('/dashboard/layout', methods=['GET'])
 @login_required

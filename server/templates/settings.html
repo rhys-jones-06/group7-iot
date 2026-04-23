@@ -526,59 +526,78 @@
                 <span class="card-header-icon">🔑</span>
                 <div class="card-header-text">
                     <h2>Pi Device Setup</h2>
-                    <p>Download your config file and copy it to your Pi's SD card</p>
+                    <p>One-time setup — no monitor or keyboard needed</p>
                 </div>
             </div>
             <div class="card-body">
-                <!-- Step 1: download -->
+                <!-- Step 1: Flash -->
                 <div class="setting-row">
-                    <div>
-                        <div style="font-weight:700;font-size:.88rem;margin-bottom:4px">Step 1 — Download config</div>
-                        <div style="font-size:.78rem;color:var(--text-muted)">Contains your API key and server URL pre-filled.</div>
+                    <div style="width:100%">
+                        <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">Step 1 — Flash the SD card</div>
+                        <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px">
+                            Use <a href="https://www.raspberrypi.com/software/" target="_blank" style="color:var(--accent)">Raspberry Pi Imager</a>.
+                            Before writing, click the <strong>OS Customisation</strong> button (gear icon) and configure:
+                        </div>
+                        <div style="font-size:.78rem;display:flex;flex-direction:column;gap:5px">
+                            <div style="display:flex;gap:8px;align-items:flex-start">
+                                <span style="color:var(--accent2);font-weight:700;flex-shrink:0">✓</span>
+                                <span style="color:var(--text-muted)">Hostname: <code style="font-family:'Space Mono',monospace;background:var(--bg);padding:1px 4px;border-radius:3px">lockin</code></span>
+                            </div>
+                            <div style="display:flex;gap:8px;align-items:flex-start">
+                                <span style="color:var(--accent2);font-weight:700;flex-shrink:0">✓</span>
+                                <span style="color:var(--text-muted)">Username &amp; password of your choice</span>
+                            </div>
+                            <div style="display:flex;gap:8px;align-items:flex-start">
+                                <span style="color:var(--accent2);font-weight:700;flex-shrink:0">✓</span>
+                                <span style="color:var(--text-muted)">WiFi network name &amp; password</span>
+                            </div>
+                            <div style="display:flex;gap:8px;align-items:flex-start">
+                                <span style="color:var(--accent2);font-weight:700;flex-shrink:0">✓</span>
+                                <span style="color:var(--text-muted)">Enable SSH (under Services tab)</span>
+                            </div>
+                        </div>
+                        <div style="font-size:.75rem;color:var(--text-muted);margin-top:8px;background:var(--bg);border-radius:6px;padding:8px 12px">
+                            This handles WiFi and SSH automatically — you won't need to create <code style="font-family:'Space Mono',monospace">wpa_supplicant.conf</code> or an <code style="font-family:'Space Mono',monospace">ssh</code> file manually.
+                        </div>
                     </div>
-                    <a href="/api/provision/config" class="copy-btn" style="text-decoration:none;white-space:nowrap">⬇ Download lockin.conf</a>
                 </div>
                 <!-- Step 2: copy to SD -->
                 <div class="setting-row">
                     <div style="width:100%">
-                        <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">Step 2 — Prepare the SD card (no monitor needed)</div>
-                        <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px">Plug the SD card into your computer. The <code style="font-family:'Space Mono',monospace;background:var(--bg);padding:1px 4px;border-radius:3px">boot</code> partition appears as a USB drive on Windows and Mac. Drop these three files into it:</div>
-                        <div style="font-size:.78rem;display:flex;flex-direction:column;gap:6px">
-                            <div style="background:var(--bg);border-radius:6px;padding:8px 12px">
-                                <code style="font-family:'Space Mono',monospace;font-size:.75rem;color:var(--navy)">lockin.conf</code>
-                                <span style="color:var(--text-muted);margin-left:8px">— the file you just downloaded</span>
-                            </div>
-                            <div style="background:var(--bg);border-radius:6px;padding:8px 12px">
-                                <code style="font-family:'Space Mono',monospace;font-size:.75rem;color:var(--navy)">ssh</code>
-                                <span style="color:var(--text-muted);margin-left:8px">— an empty file with no extension (enables SSH on first boot)</span>
-                            </div>
-                            <div style="background:var(--bg);border-radius:6px;padding:8px 12px">
-                                <code style="font-family:'Space Mono',monospace;font-size:.75rem;color:var(--navy)">wpa_supplicant.conf</code>
-                                <span style="color:var(--text-muted);margin-left:8px">— your WiFi credentials (template below)</span>
-                            </div>
+                        <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">Step 2 — Add two files to the boot partition</div>
+                        <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px">After flashing, plug the SD card back in. The <code style="font-family:'Space Mono',monospace;background:var(--bg);padding:1px 4px;border-radius:3px">bootfs</code> partition appears as a drive. Download and copy both files into it:</div>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap">
+                            <a href="/api/provision/config" class="copy-btn" style="text-decoration:none;white-space:nowrap">⬇ lockin.conf</a>
+                            <a href="/api/provision/firstrun" class="copy-btn" style="text-decoration:none;white-space:nowrap">⬇ lockin-firstrun.sh</a>
                         </div>
-                        <div style="margin-top:8px;font-family:'Space Mono',monospace;font-size:.72rem;background:var(--navy);color:#e2e8f0;padding:10px 14px;border-radius:8px;white-space:pre">country=GB
-ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
-update_config=1
-network={
-    ssid="YOUR_WIFI_NAME"
-    psk="YOUR_WIFI_PASSWORD"
-}</div>
                     </div>
                 </div>
-                <!-- Step 3: run setup -->
+                <!-- Step 3: append to firstrun.sh -->
+                <div class="setting-row">
+                    <div style="width:100%">
+                        <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">Step 3 — Append the installer to Pi Imager's setup script</div>
+                        <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px">
+                            Pi Imager placed a <code style="font-family:'Space Mono',monospace;background:var(--bg);padding:1px 4px;border-radius:3px">firstrun.sh</code> in the boot partition.
+                            Open it in a text editor and paste the line below <strong>before</strong> the final <code style="font-family:'Space Mono',monospace;background:var(--bg);padding:1px 4px;border-radius:3px">rm -f /boot/firstrun.sh</code> line:
+                        </div>
+                        <div style="position:relative">
+                            <div id="install-line" style="font-family:'Space Mono',monospace;font-size:.72rem;background:var(--navy);color:#e2e8f0;padding:10px 14px;border-radius:8px;word-break:break-all">bash /boot/lockin-firstrun.sh</div>
+                            <button type="button" onclick="copyInstallLine()" style="position:absolute;top:6px;right:8px;padding:3px 10px;font-size:.7rem;font-weight:600;font-family:'DM Sans',sans-serif;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:5px;color:#e2e8f0;cursor:pointer" id="copy-install-btn">Copy</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Step 4: boot -->
                 <div class="setting-row" style="border-bottom:none">
                     <div style="width:100%">
-                        <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">Step 3 — First-time setup (once only)</div>
-                        <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px">Insert the SD card and power on the Pi. After ~60 seconds SSH in (<code style="font-family:'Space Mono',monospace;background:var(--bg);padding:1px 4px;border-radius:3px">ssh pi@lockin.local</code>) and run:</div>
-                        <div style="font-family:'Space Mono',monospace;font-size:.75rem;background:var(--navy);color:#e2e8f0;padding:10px 14px;border-radius:8px;word-break:break-all">
-                            curl -sL https://raw.githubusercontent.com/c24057633/group-7-iot/appstart/pi/setup.sh | sudo bash
+                        <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">Step 4 — Power on</div>
+                        <div style="font-size:.78rem;color:var(--text-muted)">
+                            Insert the SD card and power on the Pi. It will connect to WiFi, install LockIn automatically, then reboot into the focus monitor — no SSH, no monitor, no keyboard ever needed.
+                            The first boot takes around 3–5 minutes.
                         </div>
-                        <div style="font-size:.75rem;color:var(--text-muted);margin-top:6px">LockIn will start automatically on every boot after that — no monitor or keyboard ever needed.</div>
                     </div>
                 </div>
                 <!-- Raw key -->
-                <div class="setting-row" style="border-top:1px solid var(--border);margin-top:8px">
+                <div class="setting-row" style="border-top:1px solid var(--border)">
                     <div style="font-weight:600;font-size:.82rem">Your API Key</div>
                     <div class="api-key-row" style="flex:1;margin-left:16px">
                         <div class="api-key-value" id="api-key-value">{{ current_user.api_key }}</div>
@@ -604,6 +623,15 @@ network={
             btn.textContent = 'Copied!';
             btn.style.color = '#166534';
             setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 2000);
+        });
+    }
+
+    function copyInstallLine() {
+        const text = document.getElementById('install-line').textContent.trim();
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = document.getElementById('copy-install-btn');
+            btn.textContent = 'Copied!';
+            setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
         });
     }
 </script>
