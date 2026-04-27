@@ -1,14 +1,22 @@
 # LockIn Raspberry Pi Requirements
-# Install via setup.sh — do not pip install directly on the Pi.
-# picamera2 and opencv are installed via apt (see setup.sh).
+# Hardware, camera, and AI inference dependencies (Linux/RPi only)
+
+# Camera & inference
+picamera2>=0.3.0
+ultralytics>=8.1.0
+mediapipe>=0.10.13
 
 # Hardware I/O
-RPi.GPIO==0.7.1
+RPi.GPIO==0.7.0
+pigpio==1.78
 
 # Networking
 requests==2.31.0
 
 # OpenCV
 opencv-python-headless==4.11.0.86
+
+# GrovePI
+grovepi==1.0.4
 
 # Add libatlas-base-dev and libopenblas-dev to apt dependencies in setup.sh
