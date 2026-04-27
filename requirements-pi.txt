@@ -9,6 +9,6 @@ RPi.GPIO==0.7.1
 requests==2.31.0
 
 # OpenCV
-opencv-python-headless=4.11.0.86
+opencv-python-headless==4.11.0.86
 
 # Add libatlas-base-dev and libopenblas-dev to apt dependencies in setup.sh
