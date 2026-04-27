@@ -32,13 +32,20 @@ GPIO.setup(MOTOR_PIN, GPIO.OUT)
 
 grovepi.pinMode(BUZZER_PIN, "OUTPUT")
 
-pwm = GPIO.PWM(MOTOR_PIN, 50)
-pwm.start(7.5)
+_pwm = None
+
+
+def _get_pwm():
+    global _pwm
+    if _pwm is None:
+        _pwm = GPIO.PWM(MOTOR_PIN, 50)
+        _pwm.start(7.5)
+    return _pwm
 
 
 def set_angle(angle: float) -> None:
     duty = 2 + (angle / 18)
-    pwm.ChangeDutyCycle(duty)
+    _get_pwm().ChangeDutyCycle(duty)
     time.sleep(0.006)
 
 
@@ -81,5 +88,6 @@ def start_alert_feedback(state: GlobalState, lock: threading.RLock) -> None:
 
         time.sleep(0.5)
 
-    pwm.stop()
+    if _pwm is not None:
+        _pwm.stop()
     GPIO.cleanup()

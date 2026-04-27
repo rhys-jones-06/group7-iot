@@ -138,5 +138,4 @@ def timer_thread(state: GlobalState, lock: threading.RLock) -> None:
             elif timer.state == PomodoroState.BREAK and timer.end_time is not None and datetime.now() >= timer.end_time:
                 timer.reset()
 
-            logger.info(f"Timer state: {timer.state}, remaining seconds: {timer.remaining_seconds()}")
         time.sleep(0.5)
