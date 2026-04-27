@@ -46,16 +46,36 @@ def vibrate(center: float = 90, amplitude: float = 3, cycles: int = 50) -> None:
         set_angle(center - amplitude)
 
 
-if __name__ == "__main__":
-    try:
-        while True:
-            # Value of 1/255 is much quieter
-            grovepi.analogWrite(PIN_BUZZER, 1)
-            time.sleep(0.5)
-            grovepi.analogWrite(PIN_BUZZER, 0)
-            vibrate(center=90, amplitude=3, cycles=30)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        pwm.stop()
-        GPIO.cleanup()
+# level 1: 0–10s  - LED flash
+# level 2: 10–20s - Buzzer (skipped in low-light — LED only)
+# level 3: 20s+   - Motor vibration
+def start_alert_feedback(state: GlobalState, lock: threading.Lock) -> None:
+    grovepi.pinMode(LED_PIN, "OUTPUT")
+
+    while True:
+        with lock:
+            if not state.running:
+                break
+            low_light = state.low_light
+            phone_detected = state.phone_detected
+            distraction_seconds = state.distraction_seconds
+
+        if phone_detected:
+            if distraction_seconds > 20:
+                # F4: level 3: motor vibration
+                vibrate()
+            elif distraction_seconds > 10:
+                # F4: level 2: buzzer (skipped in low-light — LED only)
+                if not low_light:
+                    grovepi.analogWrite(BUZZER_PIN, BUZZER_VOLUME)
+                    time.sleep(0.5)
+                    grovepi.analogWrite(BUZZER_PIN, 0)
+            else:
+                # F4: level 1: LED flash
+                grovepi.digitalWrite(LED_PIN, 0)
+                time.sleep(0.5)
+                grovepi.digitalWrite(LED_PIN, 1)
+        time.sleep(0.5)
+
+    pi.set_servo_pulsewidth(MOTOR_PIN, 0)
+    pi.stop()

@@ -14,28 +14,23 @@
 #   F6 — Server sync: submit completed sessions via HTTP client
 # ===========================================================================
 
+from __future__ import annotations
+
 import logging
 import signal
 import threading
 import time
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from types import FrameType
+from typing import Callable
 
-import config
-import client as lockin_client
+from config import LOG_LEVEL
 from detection.camera import start_phone_detection
 from detection.posture import start_posture_detection
-
-try:
-    import RPi.GPIO as GPIO
-    import grovepi
-    grovepi.pinMode(config.BUZZER_PIN, "OUTPUT")
-    GPIO.setwarnings(False)
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(config.LED_PIN, GPIO.OUT)
-    GROVEPI_AVAILABLE = True
-except Exception:
-    GROVEPI_AVAILABLE = False
+from feedback.alert import start_alert_feedback
+from feedback.display import menu_handling_thread
+from sensors.light import start_light_monitoring
+from session.timer import PomodoroState, timer_thread
+from state import GlobalState
 
 logging.basicConfig(
     level=getattr(logging, config.LOG_LEVEL, logging.INFO),
@@ -44,43 +39,193 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Shared state — written by detection threads and session loop,
-# read by posture thread and LCD display thread
-state_lock = threading.Lock()
-shared_state = {
-    "running":               True,
-    # Detection (written by camera/posture threads — F2, F3)
-    "phone_detected":        False,
-    "phone_confidence":      0.0,
-    "latest_frame":          None,
-    "person_head_y":         None,
-    "posture_status":        "starting",
-    "head_drop_pct":         0.0,
-    # Session (written by run_session, read by LCD thread — F5)
-    "session_state":         "idle",   # idle | focus | paused | break
-    "session_remaining_secs": 0,
-    "session_distractions":  0,
-    "is_distracted":         False,
-}
-
-POLL_INTERVAL_SECS    = 1.0
-NO_PERSON_THRESHOLD   = 10.0   # seconds before pausing (F1)
-LIGHT_SENSOR_PIN      = 2      # Grove light sensor analog pin
-DARK_THRESHOLD        = 10     # below this lux value → suppress buzzer (F4)
-
-# F4 escalation ladder: (min continuous distraction seconds, alert level)
-ESCALATION = [(0, 1), (10, 2), (20, 3)]
+state_lock = threading.RLock()
 
 
 def _handle_shutdown(sig, frame):
     with state_lock:
         shared_state["running"] = False
 
-signal.signal(signal.SIGINT, _handle_shutdown)
-signal.signal(signal.SIGTERM, _handle_shutdown)
+        self.camera_thread = threading.Thread(
+            target=start_phone_detection,
+            args=(state, state_lock),
+            daemon=True,
+        )
+        self.posture_thread = threading.Thread(
+            target=start_posture_detection,
+            args=(state, state_lock),
+            daemon=True,
+        )
+        self.light_thread = threading.Thread(
+            target=start_light_monitoring,
+            args=(state, state_lock),
+            daemon=True,
+        )
+        self.alert_thread = threading.Thread(
+            target=start_alert_feedback,
+            args=(state, state_lock),
+            daemon=True,
+        )
+        self.display_thread = threading.Thread(
+            target=menu_handling_thread,
+            args=(state, state_lock),
+            daemon=True,
+        )
+        self.timer_thread = threading.Thread(
+            target=timer_thread,
+            args=(state, state_lock),
+            daemon=True,
+        )
+
+    def splash_screen(self) -> None:
+        print()
+        print("=" * 65)
+        print("  LockIn — Local Detection Mode")
+        print("  F2: Phone detection  |  F3: Posture detection")
+        print("=" * 65)
+        print("  1. Sit properly and wait ~8 seconds (posture calibration)")
+        print("  2. Hold a phone up to test F2")
+        print("  3. Slouch in your chair to test F3")
+        print("  Ctrl+C to stop.")
+        print("=" * 65)
+        print()
+
+    def start(self) -> None:
+        logger.info("Starting camera thread (F2)...")
+        self.camera_thread.start()
+        logger.info("Starting posture thread (F3)...")
+        self.posture_thread.start()
+        logger.info("Starting alert thread (F4)...")
+        self.alert_thread.start()
+        logger.info("Starting display thread...")
+        self.display_thread.start()
+        logger.info("Starting light thread (F4)...")
+        self.light_thread.start()
+        logger.info("Starting timer thread...")
+        self.timer_thread.start()
+        self.splash_screen()
+        logger.info("Running.\n")
+
+    def stop(self) -> None:
+        with state_lock:
+            self.state.running = False
+        logger.info("Stopping...")
+
+        threads = [
+            self.camera_thread,
+            self.posture_thread,
+            self.light_thread,
+            self.alert_thread,
+            self.display_thread,
+            self.timer_thread,
+        ]
+
+        # Use one shared budget for all joins so shutdown time does not stack per thread.
+        total_timeout_s = 5.0
+        deadline = time.time() + total_timeout_s
+
+        for thread in threads:
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                break
+            thread.join(timeout=remaining)
+
+        names = {
+            self.camera_thread.name: "camera_thread",
+            self.posture_thread.name: "posture_thread",
+            self.light_thread.name: "light_thread",
+            self.alert_thread.name: "alert_thread",
+            self.display_thread.name: "display_thread",
+            self.timer_thread.name: "timer_thread",
+        }
+
+        alive = [names[thread.name] for thread in threads if thread.is_alive()]
+        if alive:
+            logger.warning("Shutdown timeout reached; still running: %s", ", ".join(alive))
+
+        logger.info("Done.")
+
+    def loop(self) -> None:
+        while True:
+            with state_lock:
+                if not self.state.running:
+                    break
+                phone = self.state.phone_detected
+                conf = self.state.phone_confidence
+                posture = self.state.posture_status
+                drop = self.state.head_drop_pct
+
+            if self.state.timer.state != PomodoroState.RUNNING:
+                time.sleep(1.0)
+                continue
+
+            # F2: Phone = distracted
+            is_distracted = phone
+
+            if is_distracted:
+                if self.state.distraction_start is None:
+                    with state_lock:
+                        self.state.distraction_start = time.time()
+                with state_lock:
+                    dist_secs = time.time() - self.state.distraction_start
+                    self.state.distraction_seconds = dist_secs
+            else:
+                with state_lock:
+                    self.state.distraction_start = None
+                    self.state.distraction_seconds = 0.0
+                dist_secs = 0.0
+
+            # --- PHONE ---
+            if phone:
+                p = "PHONE ({:.0%})".format(conf)
+            else:
+                p = "no phone"
+
+            # --- POSTURE ---
+            if posture == "calibrating":
+                s = "calibrating..."
+            elif posture == "good":
+                if drop > 0.01:
+                    s = "GOOD (drop {:.0%})".format(drop)
+                else:
+                    s = "GOOD"
+            elif posture == "bad":
+                s = "SLOUCHING ({:.0%} drop)".format(drop)
+            elif posture == "no person":
+                s = "no person"
+            else:
+                s = posture
+
+            # --- OVERALL ---
+            if is_distracted:
+                o = "!! DISTRACTED {:.0f}s !!".format(dist_secs)
+            elif posture == "bad":
+                o = "!! SIT UP — RETURN TO START POSITION !!"
+            else:
+                o = "focused"
+
+            l = "t" if self.state.low_light else "f"
+
+            print(" Low Light: {} | Phone: {:18s} | Posture: {:22s} | {}".format(l, p, s, o))
+
+            time.sleep(1.0)
 
 
-# ── Hardware helpers ───────────────────────────────────────────────────────────
+def _handle_shutdown(state: GlobalState) -> Callable[[int, FrameType | None], None]:
+    def inner(_sig: int, _frame: FrameType | None) -> None:
+        with state_lock:
+            state.running = False
+
+    return inner
+
+
+def main():
+    state = GlobalState(lock=state_lock)
+    signal.signal(signal.SIGINT, _handle_shutdown(state))
+    signal.signal(signal.SIGTERM, _handle_shutdown(state))
+
+    runner = MainRunner(state=state)
+    runner.start()
 
 def _is_dark() -> bool:
     """F4: read ambient light to decide whether to suppress buzzer."""

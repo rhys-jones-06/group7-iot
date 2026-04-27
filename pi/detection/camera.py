@@ -15,18 +15,15 @@ import os
 import time
 import logging
 import threading
+
 import cv2
 import numpy as np
+import grovepi
 
 try:
     from picamera2 import Picamera2
 except ImportError:
     Picamera2 = None
-
-try:
-    import RPi.GPIO as GPIO
-except ImportError:
-    GPIO = None
 
 from config import (
     CAMERA_ENABLED, CAMERA_FPS_CAP, YOLO_ONNX_PATH,
@@ -40,16 +37,8 @@ PERSON_CLASS_ID = 0   # COCO class 0 = "person"
 PERSON_CONFIDENCE = 0.2
 
 
-def _set_led(on):
-    if GPIO is None:
-        return
-    try:
-        GPIO.setwarnings(False)
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(LED_PIN, GPIO.OUT)
-        GPIO.output(LED_PIN, GPIO.HIGH if on else GPIO.LOW)
-    except Exception:
-        pass
+def _set_led(on: bool) -> None:
+    grovepi.digitalWrite(LED_PIN, int(on))
 
 
 def _preprocess(frame):

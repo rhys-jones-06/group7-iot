@@ -2,6 +2,7 @@
 # Turn the light on when the light sensor also detects light.
 
 import time
+
 import grovepi
 
 PIN_LIGHT_SENSOR = 2
@@ -15,13 +16,19 @@ grovepi.pinMode(PIN_LIGHT_BUTTON,"OUTPUT")
 THRESHOLD = 10
 
 
-while True:
-    sensor_value = grovepi.analogRead(PIN_LIGHT_SENSOR)
+def start_light_monitoring(state: GlobalState, state_lock: threading.Lock) -> None:
+    logger.info("Starting light sensor monitoring thread")
 
-    if sensor_value > THRESHOLD:
-        grovepi.digitalWrite(PIN_LIGHT_BUTTON,1)
-    else:
-        grovepi.digitalWrite(PIN_LIGHT_BUTTON,0)
+    time.sleep(1)
+    grovepi.pinMode(LIGHT_PIN, "INPUT")
 
-    print(f"{sensor_value}")
-    time.sleep(.5)
+    while True:
+        sensor_value = grovepi.analogRead(LIGHT_PIN)
+
+        with state_lock:
+            if not state.running:
+                break
+
+            state.low_light = sensor_value < LIGHT_THRESHOLD
+
+        time.sleep(2.5)

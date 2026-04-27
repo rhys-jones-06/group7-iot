@@ -2,6 +2,7 @@
 # Updated to display v5 as per addresses listed in https://docs.rs/crate/grove-lcd-rgb/0.1.0
 # RGB_ADDR is 0x30, and the data addresses are 6, 7, 8.
 
+import errno
 import sys
 import time
 
@@ -21,18 +22,34 @@ else:
 DISPLAY_RGB_ADDR = 0x30
 DISPLAY_TEXT_ADDR = 0x3e
 
+def _write_byte_data(addr, register, value):
+    for _ in range(3):
+        try:
+            bus.write_byte_data(addr, register, value)
+            return
+        except OSError as exc:
+            errno = exc.args[0] if exc.args else None
+
+            if errno != 121:
+                raise
+
+            time.sleep(0.02)
+
+    bus.write_byte_data(addr, register, value)
+
+
 # set backlight to (R,G,B) (values from 0..255 for each)
-def setRGB(r,g,b):
-    bus.write_byte_data(DISPLAY_RGB_ADDR,0,0x07)
-    bus.write_byte_data(DISPLAY_RGB_ADDR,4, 0x15)
-    bus.write_byte_data(DISPLAY_RGB_ADDR,0x08,0xaa)
-    bus.write_byte_data(DISPLAY_RGB_ADDR,0x06,r)
-    bus.write_byte_data(DISPLAY_RGB_ADDR,0x07,g)
-    bus.write_byte_data(DISPLAY_RGB_ADDR,0x08,b)
+def setRGB(r, g, b):
+    _write_byte_data(DISPLAY_RGB_ADDR, 0, 0x07)
+    _write_byte_data(DISPLAY_RGB_ADDR, 4, 0x15)
+    _write_byte_data(DISPLAY_RGB_ADDR, 0x08, 0xAA)
+    _write_byte_data(DISPLAY_RGB_ADDR, 0x06, r)
+    _write_byte_data(DISPLAY_RGB_ADDR, 0x07, g)
+    _write_byte_data(DISPLAY_RGB_ADDR, 0x08, b)
 
 # send command to display (no need for external use)    
 def textCommand(cmd):
-    bus.write_byte_data(DISPLAY_TEXT_ADDR,0x80,cmd)
+    _write_byte_data(DISPLAY_TEXT_ADDR, 0x80, cmd)
 
 # set display text \n for second line(or auto wrap)     
 def setText(text):
@@ -53,7 +70,7 @@ def setText(text):
             if c == '\n':
                 continue
         count += 1
-        bus.write_byte_data(DISPLAY_TEXT_ADDR,0x40,ord(c))
+        _write_byte_data(DISPLAY_TEXT_ADDR, 0x40, ord(c))
 
 #Update the display without erasing the display
 def setText_norefresh(text):
@@ -76,7 +93,8 @@ def setText_norefresh(text):
             if c == '\n':
                 continue
         count += 1
-        bus.write_byte_data(DISPLAY_TEXT_ADDR,0x40,ord(c))
+        _write_byte_data(DISPLAY_TEXT_ADDR, 0x40, ord(c))
+
 
 # Create a custom character (from array of row patterns)
 def create_char(location, pattern):
