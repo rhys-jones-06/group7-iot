@@ -30,6 +30,7 @@ from config import (
     YOLO_CONFIDENCE_THRESHOLD, YOLO_NMS_THRESHOLD,
     YOLO_PHONE_CLASS_ID, YOLO_INPUT_SIZE, PHONE_HEIGHT_RATIO, LED_PIN,
 )
+from state import GlobalState
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,6 @@ def _preprocess(frame):
 
 
 def _extract_detections(output, class_id, conf_threshold, ratio, pad_w, pad_h, frame_h, frame_w):
-    """Extract detections for a specific class from YOLO output."""
     predictions = output[0].T
     scores = predictions[:, 4 + class_id]
     mask = scores > conf_threshold
@@ -77,8 +77,8 @@ def _extract_detections(output, class_id, conf_threshold, ratio, pad_w, pad_h, f
     if len(indices) > 0:
         for i in (indices.flatten() if isinstance(indices, np.ndarray) else indices):
             results.append({
-                "y1": float(y1[i]),   # top of bounding box
-                "y2": float(y2[i]),   # bottom of bounding box
+                "y1": float(y1[i]),
+                "y2": float(y2[i]),
                 "x1": float(x1[i]),
                 "x2": float(x2[i]),
                 "conf": float(filtered_scores[i]),
@@ -86,29 +86,29 @@ def _extract_detections(output, class_id, conf_threshold, ratio, pad_w, pad_h, f
     return results
 
 
-def start_phone_detection(shared_state, state_lock):
+def start_phone_detection(state: GlobalState, state_lock: threading.RLock) -> None:
     if not CAMERA_ENABLED or Picamera2 is None:
         return
     if not os.path.isfile(YOLO_ONNX_PATH):
-        logger.error("[camera] Model file not found: %s", YOLO_ONNX_PATH)
+        logger.error("Model file not found: %s", YOLO_ONNX_PATH)
         return
 
-    logger.info("[camera] Loading YOLOv8n ONNX model...")
+    logger.info("Loading YOLOv8n ONNX model...")
     net = cv2.dnn.readNetFromONNX(YOLO_ONNX_PATH)
-    logger.info("[camera] Model loaded")
+    logger.info("Model loaded")
 
     camera = Picamera2()
     camera.configure(camera.create_video_configuration(main={"size": (640, 480)}))
     camera.start()
     _set_led(True)
-    logger.info("[camera] Camera started, LED ON")
+    logger.info("Camera started, LED ON")
 
     frame_interval = 1.0 / CAMERA_FPS_CAP
 
     try:
         while True:
             with state_lock:
-                if not shared_state.get("running", True):
+                if not state.running:
                     break
 
             loop_start = time.time()
@@ -122,7 +122,6 @@ def start_phone_detection(shared_state, state_lock):
             net.setInput(blob)
             output = net.forward()
 
-            # --- F2: PHONE DETECTION ---
             phones = _extract_detections(output, YOLO_PHONE_CLASS_ID,
                                          YOLO_CONFIDENCE_THRESHOLD,
                                          ratio, pad_w, pad_h, frame_h, frame_w)
@@ -134,25 +133,20 @@ def start_phone_detection(shared_state, state_lock):
                     phone_found = True
                     best_phone_conf = max(best_phone_conf, det["conf"])
 
-            # --- F3: PERSON DETECTION (for posture) ---
             persons = _extract_detections(output, PERSON_CLASS_ID,
                                           PERSON_CONFIDENCE,
                                           ratio, pad_w, pad_h, frame_h, frame_w)
 
-            # Take the largest person (closest to camera)
             person_head_y = None
             if persons:
                 largest = max(persons, key=lambda p: (p["x2"] - p["x1"]) * (p["y2"] - p["y1"]))
-                # The TOP of the person bounding box = top of their head
-                # Normalise to 0-1 (fraction of frame height)
                 person_head_y = largest["y1"] / frame_h
 
-            # --- UPDATE SHARED STATE ---
             with state_lock:
-                shared_state["phone_detected"] = phone_found
-                shared_state["phone_confidence"] = best_phone_conf
-                shared_state["person_head_y"] = person_head_y  # None if no person seen
-                shared_state["latest_frame"] = frame
+                state.phone_detected  = phone_found
+                state.phone_confidence = best_phone_conf
+                state.person_head_y   = person_head_y
+                state.latest_frame    = frame
 
             elapsed = time.time() - loop_start
             sleep_time = frame_interval - elapsed
@@ -160,9 +154,9 @@ def start_phone_detection(shared_state, state_lock):
                 time.sleep(sleep_time)
 
     except Exception as exc:
-        logger.error("[camera] Error: %s", exc)
+        logger.error("Error: %s", exc)
     finally:
         camera.stop()
         camera.close()
         _set_led(False)
-        logger.info("[camera] Camera stopped, LED OFF")
+        logger.info("Camera stopped, LED OFF")
