@@ -65,9 +65,12 @@ FACE_BASELINE_FRAMES = 15        # calibration frames (~8 sec at 2fps)
 
 # ── F4 — Alerts (GPIO pins) ────────────────────────────────────────────────────
 
-BUZZER_PIN = 22
-MOTOR_PIN = 23
-LED_PIN = 24
+LIGHT_PIN = 2          # Analogue pin, cannot conflict with joystick using 2 data pins (0, 1)
+BUZZER_PIN = 5         # Digital pin, can be any of 3, 5, 6, 9 - these are PWM-enabled pins and allow for volume control.
+LED_PIN = 8            # Digital pin
+MOTOR_PIN = 18         # GPIO pin, for PWM control of servo motor.
+LIGHT_THRESHOLD = 25   # Up to 1024, but realistic values are up to 800.
+BUZZER_VOLUME = 1      # 0-255, full volume is pretty loud
 
 # ── Logging ────────────────────────────────────────────────────────────────────
 
