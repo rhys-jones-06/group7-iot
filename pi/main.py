@@ -7,6 +7,8 @@ import time
 from types import FrameType
 from typing import Callable
 
+import config as _config
+from client import LockInClient
 from config import LOG_LEVEL
 from detection.camera import start_phone_detection
 from detection.posture import start_posture_detection
@@ -135,6 +137,7 @@ class MainRunner:
                 if self.state.distraction_start is None:
                     with state_lock:
                         self.state.distraction_start = time.time()
+                        self.state.session_distraction_count += 1
                 with state_lock:
                     dist_secs = time.time() - self.state.distraction_start
                     self.state.distraction_seconds = dist_secs
@@ -178,7 +181,25 @@ def _handle_shutdown(state: GlobalState) -> Callable[[int, FrameType | None], No
 
 
 def main() -> None:
+    cfg = _config.load()
+    client = LockInClient(cfg['server_url'], cfg['api_key'])
+
+    logger.info("Connecting to server %s ...", cfg['server_url'])
+    if client.ping():
+        logger.info("Server reachable")
+        settings = client.get_settings()
+    else:
+        logger.warning("Server unreachable — using local defaults")
+        settings = {}
+
     state = GlobalState(lock=state_lock)
+    state.client = client
+
+    if settings.get('session_duration_mins'):
+        state.timer.config.focus_duration = int(settings['session_duration_mins'])
+    if settings.get('short_break_mins'):
+        state.timer.config.break_duration = int(settings['short_break_mins'])
+
     signal.signal(signal.SIGINT, _handle_shutdown(state))
     signal.signal(signal.SIGTERM, _handle_shutdown(state))
 

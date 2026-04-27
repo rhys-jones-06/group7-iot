@@ -126,6 +126,8 @@ class PomodoroTimer:
 
 def timer_thread(state: GlobalState, lock: threading.RLock) -> None:
     while True:
+        pending_submit = None
+
         with lock:
             if not state.running:
                 break
@@ -133,9 +135,18 @@ def timer_thread(state: GlobalState, lock: threading.RLock) -> None:
             timer = state.timer
 
             if timer.state == PomodoroState.RUNNING and timer.end_time is not None and datetime.now() >= timer.end_time:
+                if state.client is not None:
+                    d_count = state.session_distraction_count
+                    state.session_distraction_count = 0
+                    pending_submit = (timer.config.focus_duration, d_count)
                 timer.start_break()
 
             elif timer.state == PomodoroState.BREAK and timer.end_time is not None and datetime.now() >= timer.end_time:
                 timer.reset()
+
+        if pending_submit is not None:
+            duration_mins, d_count = pending_submit
+            focus_score = max(0.0, 100.0 - d_count * 10.0)
+            state.client.submit_session(duration_mins, d_count, focus_score, 0)
 
         time.sleep(0.5)

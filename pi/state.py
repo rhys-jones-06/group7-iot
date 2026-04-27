@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import threading
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from session.timer import PomodoroTimer
 
@@ -26,3 +26,5 @@ class GlobalState:
         self.low_light: bool = False
         self.timer: PomodoroTimer = PomodoroTimer(self, lock)
         self.display: Display | None = None
+        self.client: Optional[Any] = None          # LockInClient, set by main()
+        self.session_distraction_count: int = 0    # reset each time a session completes
