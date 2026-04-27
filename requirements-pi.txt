@@ -3,7 +3,12 @@
 # picamera2 and opencv are installed via apt (see setup.sh).
 
 # Hardware I/O
-RPi.GPIO==0.7.0
+RPi.GPIO==0.7.1
 
 # Networking
 requests==2.31.0
+
+# OpenCV
+opencv-python-headless=4.11.0.86
+
+# Add libatlas-base-dev and libopenblas-dev to apt dependencies in setup.sh
