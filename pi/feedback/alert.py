@@ -15,29 +15,32 @@
 # o o
 # o 3
 
-import RPi.GPIO as GPIO
+import logging
+import threading
 import time
+
+import RPi.GPIO as GPIO
 import grovepi
 
-PIN_SERVO = 18
-# Can be any of 3, 5, 6, 9 - these are PWM-enabled pins and allow for volume control.
-PIN_BUZZER = 5
+from config import BUZZER_PIN, BUZZER_VOLUME, LED_PIN, MOTOR_PIN
+from state import GlobalState
+
+logger = logging.getLogger(__name__)
 
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(PIN_SERVO, GPIO.OUT)
+GPIO.setup(MOTOR_PIN, GPIO.OUT)
 
-grovepi.pinMode(PIN_BUZZER, "OUTPUT")
+grovepi.pinMode(BUZZER_PIN, "OUTPUT")
 
-pwm = GPIO.PWM(PIN_SERVO, 50)
-pwm.start(7.5)  # 7.5 duty cycle is about center position (90 degrees)
+pwm = GPIO.PWM(MOTOR_PIN, 50)
+pwm.start(7.5)
 
 
 def set_angle(angle: float) -> None:
     duty = 2 + (angle / 18)
     pwm.ChangeDutyCycle(duty)
-    # very short delay, just enough for servo to respond
-    # 0.005 produces no output, so does 0.01, so 0.06 seems the best to produce a good jitter.
     time.sleep(0.006)
+
 
 def vibrate(center: float = 90, amplitude: float = 3, cycles: int = 50) -> None:
     """Vibrate the servo around a centre angle, by a given amplitude, for a number of cycles."""
@@ -49,15 +52,15 @@ def vibrate(center: float = 90, amplitude: float = 3, cycles: int = 50) -> None:
 # level 1: 0–10s  - LED flash
 # level 2: 10–20s - Buzzer (skipped in low-light — LED only)
 # level 3: 20s+   - Motor vibration
-def start_alert_feedback(state: GlobalState, lock: threading.Lock) -> None:
+def start_alert_feedback(state: GlobalState, lock: threading.RLock) -> None:
     grovepi.pinMode(LED_PIN, "OUTPUT")
 
     while True:
         with lock:
             if not state.running:
                 break
-            low_light = state.low_light
-            phone_detected = state.phone_detected
+            low_light           = state.low_light
+            phone_detected      = state.phone_detected
             distraction_seconds = state.distraction_seconds
 
         if phone_detected:
@@ -72,10 +75,11 @@ def start_alert_feedback(state: GlobalState, lock: threading.Lock) -> None:
                     grovepi.analogWrite(BUZZER_PIN, 0)
             else:
                 # F4: level 1: LED flash
-                grovepi.digitalWrite(LED_PIN, 0)
-                time.sleep(0.5)
                 grovepi.digitalWrite(LED_PIN, 1)
+                time.sleep(0.5)
+                grovepi.digitalWrite(LED_PIN, 0)
+
         time.sleep(0.5)
 
-    pi.set_servo_pulsewidth(MOTOR_PIN, 0)
-    pi.stop()
+    pwm.stop()
+    GPIO.cleanup()

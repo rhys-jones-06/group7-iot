@@ -1,34 +1,30 @@
-# Light sensor in A2, light/button in D8
-# Turn the light on when the light sensor also detects light.
+# Light sensor in A2 — reads ambient light to detect low-light conditions.
 
+import logging
+import threading
 import time
 
 import grovepi
 
-PIN_LIGHT_SENSOR = 2
-PIN_LIGHT_BUTTON = 8
+from config import LIGHT_PIN, LIGHT_THRESHOLD
+from state import GlobalState
 
-grovepi.pinMode(PIN_LIGHT_SENSOR,"INPUT")
-grovepi.pinMode(PIN_LIGHT_BUTTON,"OUTPUT")
-
-# Turn on LED once sensor exceeds threshold value.
-# Value can go up to 1023, but seems to cap at 827.
-THRESHOLD = 10
+logger = logging.getLogger(__name__)
 
 
-def start_light_monitoring(state: GlobalState, state_lock: threading.Lock) -> None:
+def start_light_monitoring(state: GlobalState, state_lock: threading.RLock) -> None:
     logger.info("Starting light sensor monitoring thread")
 
-    time.sleep(1)
     grovepi.pinMode(LIGHT_PIN, "INPUT")
 
     while True:
-        sensor_value = grovepi.analogRead(LIGHT_PIN)
-
         with state_lock:
             if not state.running:
                 break
 
+        sensor_value = grovepi.analogRead(LIGHT_PIN)
+
+        with state_lock:
             state.low_light = sensor_value < LIGHT_THRESHOLD
 
         time.sleep(2.5)
