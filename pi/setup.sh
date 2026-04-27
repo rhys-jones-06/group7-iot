@@ -1,25 +1,21 @@
 #!/usr/bin/env bash
 # LockIn Pi — Headless Setup Script
 # ============================================================
-# BEFORE running this script you need three files on the Pi's
-# SD card boot partition (plug it into any PC/Mac first):
+# BEFORE running this script:
 #
-#   /boot/lockin.conf       — download from dashboard → Settings
-#   /boot/ssh               — empty file, enables SSH on first boot
-#   /boot/wpa_supplicant.conf — WiFi credentials (see below)
+#   1. Flash Raspberry Pi OS Lite (Bullseye) with Raspberry Pi Imager.
+#      In the Imager's Advanced Options (gear icon / Ctrl+Shift+X), set:
+#        - Hostname: lockin
+#        - Enable SSH + password
+#        - WiFi SSID, password, and country
 #
-# wpa_supplicant.conf template:
-#   country=GB
-#   ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
-#   update_config=1
-#   network={
-#       ssid="YOUR_WIFI_NAME"
-#       psk="YOUR_WIFI_PASSWORD"
-#   }
+#   2. After flashing, copy lockin.conf to the boot partition:
+#        /boot/lockin.conf  — get this from the LockIn dashboard → Settings
 #
-# Once the SD card is in and the Pi has booted (give it ~60s),
-# find its IP via your router or: ping lockin.local
-# Then SSH in and run:
+#   3. Insert SD card, power on, wait ~60s, then SSH in:
+#        ssh pi@lockin.local
+#
+#   4. Run:
 #
 #   curl -sL https://raw.githubusercontent.com/c24057633/group-7-iot/appstart/pi/setup.sh | sudo bash
 #
