@@ -13,9 +13,10 @@ logger = logging.getLogger(__name__)
 
 class LockInClient:
     def __init__(self, server_url: str, api_key: str, timeout: int = 10):
-        self.base   = server_url.rstrip('/')
+        self.base    = server_url.rstrip('/')
         self.headers = {'X-API-Key': api_key, 'Content-Type': 'application/json'}
         self.timeout = timeout
+        self.verify  = False  # Cardiff OpenShift uses a CA not trusted by Bullseye
 
     # ── Settings ──────────────────────────────────────────────────────────
     def get_settings(self) -> Dict[str, Any]:
@@ -25,6 +26,7 @@ class LockInClient:
                 f'{self.base}/api/settings',
                 headers=self.headers,
                 timeout=self.timeout,
+                verify=self.verify,
             )
             r.raise_for_status()
             settings = r.json()
@@ -71,6 +73,7 @@ class LockInClient:
                 json=payload,
                 headers=self.headers,
                 timeout=self.timeout,
+                verify=self.verify,
             )
             r.raise_for_status()
             session_id = r.json().get('session_id')
@@ -84,7 +87,7 @@ class LockInClient:
     def ping(self) -> bool:
         """Return True if the server is reachable."""
         try:
-            r = requests.get(f'{self.base}/login', timeout=self.timeout)
+            r = requests.get(f'{self.base}/login', timeout=self.timeout, verify=self.verify)
             return r.status_code < 500
         except requests.RequestException:
             return False
