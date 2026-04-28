@@ -5,6 +5,12 @@
 import errno
 import sys
 import time
+import threading
+
+try:
+    from hardware import i2c_lock
+except ImportError:
+    i2c_lock = threading.Lock()
 
 if sys.platform == 'uwp':
     import winrt_smbus as smbus
@@ -23,19 +29,20 @@ DISPLAY_RGB_ADDR = 0x62
 DISPLAY_TEXT_ADDR = 0x3e
 
 def _write_byte_data(addr, register, value):
-    for _ in range(3):
-        try:
-            bus.write_byte_data(addr, register, value)
-            return
-        except OSError as exc:
-            errno = exc.args[0] if exc.args else None
+    with i2c_lock:
+        for _ in range(3):
+            try:
+                bus.write_byte_data(addr, register, value)
+                return
+            except OSError as exc:
+                errno = exc.args[0] if exc.args else None
 
-            if errno != 121:
-                raise
+                if errno != 121:
+                    raise
 
-            time.sleep(0.02)
+                time.sleep(0.02)
 
-    bus.write_byte_data(addr, register, value)
+        bus.write_byte_data(addr, register, value)
 
 
 # set backlight to (R,G,B) (values from 0..255 for each)

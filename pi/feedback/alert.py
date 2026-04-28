@@ -23,6 +23,7 @@ import RPi.GPIO as GPIO
 import grovepi
 
 from config import BUZZER_PIN, BUZZER_VOLUME, LED_PIN, MOTOR_PIN
+from hardware import i2c_lock
 from state import GlobalState
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,8 @@ logger = logging.getLogger(__name__)
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(MOTOR_PIN, GPIO.OUT)
 
-grovepi.pinMode(BUZZER_PIN, "OUTPUT")
+with i2c_lock:
+    grovepi.pinMode(BUZZER_PIN, "OUTPUT")
 
 _pwm = None
 
@@ -60,7 +62,8 @@ def vibrate(center: float = 90, amplitude: float = 3, cycles: int = 50) -> None:
 # level 2: 10–20s - Buzzer (skipped in low-light — LED only)
 # level 3: 20s+   - Motor vibration
 def start_alert_feedback(state: GlobalState, lock: threading.RLock) -> None:
-    grovepi.pinMode(LED_PIN, "OUTPUT")
+    with i2c_lock:
+        grovepi.pinMode(LED_PIN, "OUTPUT")
 
     while True:
         with lock:
@@ -77,14 +80,18 @@ def start_alert_feedback(state: GlobalState, lock: threading.RLock) -> None:
             elif distraction_seconds > 10:
                 # F4: level 2: buzzer (skipped in low-light — LED only)
                 if not low_light:
-                    grovepi.analogWrite(BUZZER_PIN, BUZZER_VOLUME)
+                    with i2c_lock:
+                        grovepi.analogWrite(BUZZER_PIN, BUZZER_VOLUME)
                     time.sleep(0.5)
-                    grovepi.analogWrite(BUZZER_PIN, 0)
+                    with i2c_lock:
+                        grovepi.analogWrite(BUZZER_PIN, 0)
             else:
                 # F4: level 1: LED flash
-                grovepi.digitalWrite(LED_PIN, 1)
+                with i2c_lock:
+                    grovepi.digitalWrite(LED_PIN, 1)
                 time.sleep(0.5)
-                grovepi.digitalWrite(LED_PIN, 0)
+                with i2c_lock:
+                    grovepi.digitalWrite(LED_PIN, 0)
 
         time.sleep(0.5)
 
