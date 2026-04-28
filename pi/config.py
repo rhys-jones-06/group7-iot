@@ -48,7 +48,7 @@ def load() -> dict:
 # ── F2 — Phone detection ───────────────────────────────────────────────────────
 
 CAMERA_ENABLED = True
-CAMERA_FPS_CAP = 4
+CAMERA_FPS_CAP = 3
 YOLO_ONNX_PATH = "yolov8n.onnx"
 YOLO_CONFIDENCE_THRESHOLD = 0.10
 YOLO_NMS_THRESHOLD = 0.45
