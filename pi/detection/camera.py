@@ -125,8 +125,8 @@ def start_phone_detection(state: GlobalState, state_lock: threading.RLock) -> No
             phones = _extract_detections(output, YOLO_PHONE_CLASS_ID,
                                          YOLO_CONFIDENCE_THRESHOLD,
                                          ratio, pad_w, pad_h, frame_h, frame_w)
-            phone_found = len(phones) > 0
-            best_phone_conf = max([p["conf"] for p in phones], default=0.0)
+            phone_found = False
+            best_phone_conf = 0.0
             for det in phones:
                 centre_y = (det["y1"] + det["y2"]) / 2.0
                 if centre_y < frame_h * PHONE_HEIGHT_RATIO:
