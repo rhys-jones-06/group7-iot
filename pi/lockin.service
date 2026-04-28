@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=pi
 WorkingDirectory=/home/pi/group7-iot/pi
-ExecStart=/home/pi/group7-iot/venv/bin/python3 main.py
+ExecStart=/usr/bin/python3 main.py
 Restart=on-failure
 RestartSec=5
 
