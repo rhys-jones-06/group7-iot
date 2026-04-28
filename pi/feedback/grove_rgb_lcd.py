@@ -19,7 +19,7 @@ else:
         bus = smbus.SMBus(0)
 
 # this device has two I2C addresses
-DISPLAY_RGB_ADDR = 0x30
+DISPLAY_RGB_ADDR = 0x62
 DISPLAY_TEXT_ADDR = 0x3e
 
 def _write_byte_data(addr, register, value):
