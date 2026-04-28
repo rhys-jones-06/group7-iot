@@ -9,9 +9,6 @@ RUN pip install --no-cache-dir -r requirements-server.txt
 
 COPY server/ ./
 
-# Allow any UID (OpenShift security model)
-RUN chown -R 1000:0 /app && chmod -R g=u /app
-USER 1000
 
 ENV FLASK_ENV=production \
     PORT=8080

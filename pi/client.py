@@ -16,7 +16,7 @@ class LockInClient:
         self.base    = server_url.rstrip('/')
         self.headers = {'X-API-Key': api_key, 'Content-Type': 'application/json'}
         self.timeout = timeout
-        self.verify  = False  # Cardiff OpenShift uses a CA not trusted by Bullseye
+        self.verify  = True
 
     # ── Settings ──────────────────────────────────────────────────────────
     def get_settings(self) -> Dict[str, Any]:
