@@ -31,8 +31,11 @@ logger = logging.getLogger(__name__)
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(MOTOR_PIN, GPIO.OUT)
 
-with i2c_lock:
-    grovepi.pinMode(BUZZER_PIN, "OUTPUT")
+try:
+    with i2c_lock:
+        grovepi.pinMode(BUZZER_PIN, "OUTPUT")
+except Exception as e:
+    logger.warning("Buzzer init failed: %s", e)
 
 _pwm = None
 
@@ -51,19 +54,34 @@ def set_angle(angle: float) -> None:
     time.sleep(0.006)
 
 
-def vibrate(center: float = 90, amplitude: float = 3, cycles: int = 50) -> None:
+def vibrate(center: float = 90, amplitude: float = 3, cycles: int = 15) -> None:
     """Vibrate the servo around a centre angle, by a given amplitude, for a number of cycles."""
-    for _ in range(cycles):
-        set_angle(center + amplitude)
-        set_angle(center - amplitude)
+    try:
+        for _ in range(cycles):
+            set_angle(center + amplitude)
+            set_angle(center - amplitude)
+    except Exception as e:
+        logger.warning("Vibrate failed: %s", e)
+
+
+def _grovepi_write(fn, *args):
+    """Call a grovepi function with the i2c lock, swallowing errors to prevent freezes."""
+    try:
+        with i2c_lock:
+            fn(*args)
+    except Exception as e:
+        logger.warning("GrovePi call failed: %s", e)
 
 
 # level 1: 0–10s  - LED flash
 # level 2: 10–20s - Buzzer (skipped in low-light — LED only)
 # level 3: 20s+   - Motor vibration
 def start_alert_feedback(state: GlobalState, lock: threading.RLock) -> None:
-    with i2c_lock:
-        grovepi.pinMode(LED_PIN, "OUTPUT")
+    try:
+        with i2c_lock:
+            grovepi.pinMode(LED_PIN, "OUTPUT")
+    except Exception as e:
+        logger.warning("LED init failed: %s", e)
 
     while True:
         with lock:
@@ -80,18 +98,14 @@ def start_alert_feedback(state: GlobalState, lock: threading.RLock) -> None:
             elif distraction_seconds > 10:
                 # F4: level 2: buzzer (skipped in low-light — LED only)
                 if not low_light:
-                    with i2c_lock:
-                        grovepi.analogWrite(BUZZER_PIN, BUZZER_VOLUME)
+                    _grovepi_write(grovepi.analogWrite, BUZZER_PIN, BUZZER_VOLUME)
                     time.sleep(0.5)
-                    with i2c_lock:
-                        grovepi.analogWrite(BUZZER_PIN, 0)
+                    _grovepi_write(grovepi.analogWrite, BUZZER_PIN, 0)
             else:
                 # F4: level 1: LED flash
-                with i2c_lock:
-                    grovepi.digitalWrite(LED_PIN, 1)
+                _grovepi_write(grovepi.digitalWrite, LED_PIN, 1)
                 time.sleep(0.5)
-                with i2c_lock:
-                    grovepi.digitalWrite(LED_PIN, 0)
+                _grovepi_write(grovepi.digitalWrite, LED_PIN, 0)
 
         time.sleep(0.5)
 
