@@ -18,7 +18,6 @@ import threading
 
 import cv2
 import numpy as np
-import grovepi
 
 try:
     from picamera2 import Picamera2
@@ -28,7 +27,7 @@ except ImportError:
 from config import (
     CAMERA_ENABLED, CAMERA_FPS_CAP, YOLO_ONNX_PATH,
     YOLO_CONFIDENCE_THRESHOLD, YOLO_NMS_THRESHOLD,
-    YOLO_PHONE_CLASS_ID, YOLO_INPUT_SIZE, PHONE_HEIGHT_RATIO, LED_PIN,
+    YOLO_PHONE_CLASS_ID, YOLO_INPUT_SIZE, PHONE_HEIGHT_RATIO,
 )
 from state import GlobalState
 
@@ -36,10 +35,6 @@ logger = logging.getLogger(__name__)
 
 PERSON_CLASS_ID = 0   # COCO class 0 = "person"
 PERSON_CONFIDENCE = 0.2
-
-
-def _set_led(on: bool) -> None:
-    grovepi.digitalWrite(LED_PIN, int(on))
 
 
 def _preprocess(frame):
@@ -100,8 +95,7 @@ def start_phone_detection(state: GlobalState, state_lock: threading.RLock) -> No
     camera = Picamera2()
     camera.configure(camera.create_video_configuration(main={"size": (640, 480)}))
     camera.start()
-    _set_led(True)
-    logger.info("Camera started, LED ON")
+    logger.info("Camera started")
 
     frame_interval = 1.0 / CAMERA_FPS_CAP
 
@@ -158,5 +152,4 @@ def start_phone_detection(state: GlobalState, state_lock: threading.RLock) -> No
     finally:
         camera.stop()
         camera.close()
-        _set_led(False)
-        logger.info("Camera stopped, LED OFF")
+        logger.info("Camera stopped")
