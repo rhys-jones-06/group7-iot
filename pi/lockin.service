@@ -1,0 +1,14 @@
+[Unit]
+Description=LockIn Focus Monitor
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/group7-iot/pi
+ExecStart=/home/pi/group7-iot/venv/bin/python3 main.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
