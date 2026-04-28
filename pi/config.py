@@ -53,7 +53,7 @@ YOLO_ONNX_PATH = "yolov8n.onnx"
 YOLO_CONFIDENCE_THRESHOLD = 0.10
 YOLO_NMS_THRESHOLD = 0.45
 YOLO_PHONE_CLASS_ID = 67
-YOLO_INPUT_SIZE = 416
+YOLO_INPUT_SIZE = 640
 PHONE_HEIGHT_RATIO = 0.70
 
 # ── F3 — Posture detection ─────────────────────────────────────────────────────
