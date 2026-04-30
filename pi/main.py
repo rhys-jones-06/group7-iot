@@ -28,9 +28,37 @@ logger = logging.getLogger(__name__)
 state_lock = threading.RLock()
 
 
+def _apply_settings(state: GlobalState, settings: dict) -> None:
+    if settings.get('session_duration_mins'):
+        state.timer.config.focus_duration = int(settings['session_duration_mins'])
+    if settings.get('short_break_mins'):
+        state.timer.config.break_duration = int(settings['short_break_mins'])
+    if settings.get('alert_type'):
+        state.alert_mode = 'loud' if settings['alert_type'] == 'audio' else 'silent'
+
+
+def _settings_sync_thread(state: GlobalState) -> None:
+    while True:
+        for _ in range(60):
+            time.sleep(1)
+            with state_lock:
+                if not state.running:
+                    return
+        if state.client:
+            settings = state.client.get_settings()
+            with state_lock:
+                _apply_settings(state, settings)
+            logger.debug("Settings synced from server")
+
+
 class MainRunner:
     def __init__(self, state: GlobalState) -> None:
         self.state = state
+        self.settings_thread = threading.Thread(
+            target=_settings_sync_thread,
+            args=(state,),
+            daemon=True,
+        )
         self.camera_thread = threading.Thread(
             target=start_phone_detection,
             args=(state, state_lock),
@@ -75,6 +103,8 @@ class MainRunner:
         print()
 
     def start(self) -> None:
+        logger.info("Starting settings sync thread...")
+        self.settings_thread.start()
         logger.info("Starting camera thread (F2)...")
         self.camera_thread.start()
         logger.info("Starting posture thread (F3)...")
@@ -96,6 +126,7 @@ class MainRunner:
         logger.info("Stopping...")
 
         threads = [
+            self.settings_thread,
             self.camera_thread,
             self.posture_thread,
             self.light_thread,
@@ -195,10 +226,7 @@ def main() -> None:
     state = GlobalState(lock=state_lock)
     state.client = client
 
-    if settings.get('session_duration_mins'):
-        state.timer.config.focus_duration = int(settings['session_duration_mins'])
-    if settings.get('short_break_mins'):
-        state.timer.config.break_duration = int(settings['short_break_mins'])
+    _apply_settings(state, settings)
 
     signal.signal(signal.SIGINT, _handle_shutdown(state))
     signal.signal(signal.SIGTERM, _handle_shutdown(state))
