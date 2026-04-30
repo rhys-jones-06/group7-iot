@@ -18,6 +18,7 @@ import threading
 
 import cv2
 import numpy as np
+import grovepi
 
 try:
     from picamera2 import Picamera2
@@ -27,8 +28,9 @@ except ImportError:
 from config import (
     CAMERA_ENABLED, CAMERA_FPS_CAP, YOLO_ONNX_PATH,
     YOLO_CONFIDENCE_THRESHOLD, YOLO_NMS_THRESHOLD,
-    YOLO_PHONE_CLASS_ID, YOLO_INPUT_SIZE, PHONE_HEIGHT_RATIO,
+    YOLO_PHONE_CLASS_ID, YOLO_INPUT_SIZE, PHONE_HEIGHT_RATIO, LED_PIN,
 )
+from hardware import i2c_lock
 from state import GlobalState
 
 logger = logging.getLogger(__name__)
@@ -95,7 +97,13 @@ def start_phone_detection(state: GlobalState, state_lock: threading.RLock) -> No
     camera = Picamera2()
     camera.configure(camera.create_video_configuration(main={"size": (640, 480)}))
     camera.start()
-    logger.info("Camera started")
+    try:
+        with i2c_lock:
+            grovepi.pinMode(LED_PIN, "OUTPUT")
+            grovepi.digitalWrite(LED_PIN, 1)
+    except Exception:
+        pass
+    logger.info("Camera started, LED ON")
 
     frame_interval = 1.0 / CAMERA_FPS_CAP
 
@@ -152,4 +160,9 @@ def start_phone_detection(state: GlobalState, state_lock: threading.RLock) -> No
     finally:
         camera.stop()
         camera.close()
-        logger.info("Camera stopped")
+        try:
+            with i2c_lock:
+                grovepi.digitalWrite(LED_PIN, 0)
+        except Exception:
+            pass
+        logger.info("Camera stopped, LED OFF")

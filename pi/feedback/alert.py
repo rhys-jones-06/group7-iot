@@ -96,16 +96,17 @@ def start_alert_feedback(state: GlobalState, lock: threading.RLock) -> None:
                 # F4: level 3: motor vibration
                 vibrate()
             elif distraction_seconds > 10:
-                # F4: level 2: buzzer (skipped in low-light — LED only)
+                # F4: level 2: louder buzzer
                 if not low_light:
-                    _grovepi_write(grovepi.analogWrite, BUZZER_PIN, BUZZER_VOLUME)
+                    _grovepi_write(grovepi.analogWrite, BUZZER_PIN, min(BUZZER_VOLUME * 2, 255))
                     time.sleep(0.5)
                     _grovepi_write(grovepi.analogWrite, BUZZER_PIN, 0)
             else:
-                # F4: level 1: LED flash
-                _grovepi_write(grovepi.digitalWrite, LED_PIN, 1)
-                time.sleep(0.5)
-                _grovepi_write(grovepi.digitalWrite, LED_PIN, 0)
+                # F4: level 1: buzzer beep
+                if not low_light:
+                    _grovepi_write(grovepi.analogWrite, BUZZER_PIN, BUZZER_VOLUME)
+                    time.sleep(0.3)
+                    _grovepi_write(grovepi.analogWrite, BUZZER_PIN, 0)
 
         time.sleep(0.5)
 

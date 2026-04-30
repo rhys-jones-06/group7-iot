@@ -9,6 +9,7 @@ import logging
 import grovepi
 
 from feedback.grove_rgb_lcd import setRGB, setText
+from hardware import i2c_lock
 from config import DEFAULT_FOCUS_MINS
 from session.timer import PomodoroState
 from state import GlobalState
@@ -21,8 +22,9 @@ logger = logging.getLogger(__name__)
 PIN_JOYSTICK_X = 0
 PIN_JOYSTICK_Y = 1
 
-grovepi.pinMode(PIN_JOYSTICK_X, "INPUT")
-grovepi.pinMode(PIN_JOYSTICK_Y, "INPUT")
+with i2c_lock:
+    grovepi.pinMode(PIN_JOYSTICK_X, "INPUT")
+    grovepi.pinMode(PIN_JOYSTICK_Y, "INPUT")
 
 # Pos X to the right, pos Y up, with text on back upright.
 # The joystick defines its own zones, so there is no calibration for deadzones.
@@ -80,8 +82,9 @@ class Display:
 
     def handle_joystick_input(self) -> None:
         try:
-            x = grovepi.analogRead(PIN_JOYSTICK_X)
-            y = grovepi.analogRead(PIN_JOYSTICK_Y)
+            with i2c_lock:
+                x = grovepi.analogRead(PIN_JOYSTICK_X)
+                y = grovepi.analogRead(PIN_JOYSTICK_Y)
         except Exception:
             print("JOYSTICK ERROR")
             traceback.print_exc()
