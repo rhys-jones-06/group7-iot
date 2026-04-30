@@ -87,14 +87,12 @@ def _step_increase(cur: int) -> int:
 
 
 class Menu(Enum):
-    HOME               = "home"
-    FOCUS_SETTING      = "focus_setting"
-    BREAK_SETTING      = "break_setting"
-    ALERT_MODE_SETTING = "alert_mode_setting"
+    HOME  = "home"
+    STATS = "stats"
 
 
 class Display:
-    MENU_ORDER = [Menu.HOME, Menu.FOCUS_SETTING, Menu.BREAK_SETTING, Menu.ALERT_MODE_SETTING]
+    MENU_ORDER = [Menu.HOME, Menu.STATS]
 
     def __init__(self, global_state: GlobalState, state_lock: threading.RLock) -> None:
         setRGB(50, 50, 50)
@@ -192,36 +190,10 @@ class Display:
         self.change_screen(self.MENU_ORDER[(idx + 1) % len(self.MENU_ORDER)])
 
     def _handle_left(self) -> None:
-        if self._current_menu == Menu.FOCUS_SETTING:
-            with self._state_lock:
-                cur = self._state.timer.config.focus_duration
-                self._state.timer.config.focus_duration = _step_decrease(cur)
-            self.tick()
-        elif self._current_menu == Menu.BREAK_SETTING:
-            with self._state_lock:
-                cur = self._state.timer.config.break_duration
-                self._state.timer.config.break_duration = _step_decrease(cur)
-            self.tick()
-        elif self._current_menu == Menu.ALERT_MODE_SETTING:
-            with self._state_lock:
-                self._state.alert_mode = "silent"
-            self.tick()
+        pass
 
     def _handle_right(self) -> None:
-        if self._current_menu == Menu.FOCUS_SETTING:
-            with self._state_lock:
-                cur = self._state.timer.config.focus_duration
-                self._state.timer.config.focus_duration = _step_increase(cur)
-            self.tick()
-        elif self._current_menu == Menu.BREAK_SETTING:
-            with self._state_lock:
-                cur = self._state.timer.config.break_duration
-                self._state.timer.config.break_duration = _step_increase(cur)
-            self.tick()
-        elif self._current_menu == Menu.ALERT_MODE_SETTING:
-            with self._state_lock:
-                self._state.alert_mode = "loud"
-            self.tick()
+        pass
 
     # ── rendering ────────────────────────────────────────────────────────────
     def change_screen(self, screen: Menu) -> None:
@@ -247,23 +219,21 @@ class Display:
             print("LCD ERROR")
             traceback.print_exc()
 
-    def _display_focus_setting(self) -> None:
-        cur = self._state.timer.config.focus_duration if self._state.timer else DEFAULT_FOCUS_MINS
-        setText(f"Focus time <- ->\n{cur} min")
+    def _display_stats(self) -> None:
+        with self._state_lock:
+            distractions = self._state.session_distraction_count
+            posture      = self._state.posture_status
+            timer_state  = self._state.timer.state if self._state.timer else None
 
-    def _display_break_setting(self) -> None:
-        cur = self._state.timer.config.break_duration if self._state.timer else DEFAULT_FOCUS_MINS
-        setText(f"Break time <- ->\n{cur} min")
-
-    def _display_alert_mode_setting(self) -> None:
-        cur = self._state.alert_mode if self._state else "silent"
-        setText(f"Alerts <- ->\n{cur}")
+        if timer_state == PomodoroState.RUNNING:
+            focus_score = max(0, 100 - distractions * 10)
+            setText(f"Distracts: {distractions}\nScore: {focus_score}%")
+        else:
+            setText(f"Posture: {posture[:7]}\nDistracts: {distractions}")
 
     def tick(self) -> None:
-        if   self._current_menu == Menu.HOME:               self._display_home()
-        elif self._current_menu == Menu.FOCUS_SETTING:      self._display_focus_setting()
-        elif self._current_menu == Menu.BREAK_SETTING:      self._display_break_setting()
-        elif self._current_menu == Menu.ALERT_MODE_SETTING: self._display_alert_mode_setting()
+        if   self._current_menu == Menu.HOME:  self._display_home()
+        elif self._current_menu == Menu.STATS: self._display_stats()
 
 
 # ─── thread entry point ─────────────────────────────────────────────────────

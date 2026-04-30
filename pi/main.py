@@ -39,7 +39,7 @@ def _apply_settings(state: GlobalState, settings: dict) -> None:
 
 def _settings_sync_thread(state: GlobalState) -> None:
     while True:
-        for _ in range(60):
+        for _ in range(15):
             time.sleep(1)
             with state_lock:
                 if not state.running:
