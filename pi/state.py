@@ -23,8 +23,11 @@ class GlobalState:
         self.head_drop_pct: float = 0.0
         self.distraction_start: float | None = None
         self.distraction_seconds: float = 0.0
+        self.phone_last_seen: float | None = None
+        self.posture_bad_since: float | None = None
         self.low_light: bool = False
         self.timer: PomodoroTimer = PomodoroTimer(self, lock)
         self.display: Display | None = None
         self.client: Optional[Any] = None          # LockInClient, set by main()
         self.session_distraction_count: int = 0    # reset each time a session completes
+        self.alert_mode: str = "silent"            # "silent" (servo) or "loud" (buzzer)

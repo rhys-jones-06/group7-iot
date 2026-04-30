@@ -1,182 +1,238 @@
+# ===========================================================================
+# LockIn — pi/feedback/display.py
+# CM2211 Group 07 | F5: Grove RGB LCD + Thumb Joystick UI
+#
+# Joystick mapping:
+#   up / down    → cycle menu screens
+#   left / right → adjust value (held → auto-repeat after 350 ms)
+#   click        → start / pause / resume focus session  (HOME screen only)
+#
+# Menus, in order:
+#   HOME              countdown + state          (click = start / pause)
+#   FOCUS_SETTING     focus duration             (left / right ±)
+#   BREAK_SETTING     break duration             (left / right ±)
+#   ALERT_MODE_SETTING  silent / loud            (left = silent, right = loud)
+#
+# How the joystick is read robustly:
+#
+#   Step 1 — classify each poll into exactly ONE zone
+#       {neutral, click, left, right, up, down}.
+#       Click takes priority (X >= 1000) so it never doubles as "right".
+#
+#   Step 2 — 2-frame debounce
+#       A new zone has to be observed twice in a row before it counts.
+#       Single-frame I²C noise spikes vanish.
+#
+#   Step 3 — fire on transition + hold-to-repeat for directions
+#       Click: fires once per press, no auto-repeat.
+#       Direction: fires on transition AND every 350 ms while held — so you
+#       can fast-scroll values by holding the stick.
+#
+#   Step 4 — post-click lockout
+#       After a click is registered, directional input is ignored for 400 ms
+#       so the click-button release (which transiently passes through the
+#       "right" zone of the X axis) doesn't fire a phantom right-press.
+# ===========================================================================
 from __future__ import annotations
 
-from enum import Enum
+import logging
 import threading
 import time
 import traceback
-import logging
+from enum import Enum
 
 import grovepi
 
+from config import DEFAULT_FOCUS_MINS, PIN_JOYSTICK_X, PIN_JOYSTICK_Y
 from feedback.grove_rgb_lcd import setRGB, setText
-from hardware import i2c_lock
-from config import DEFAULT_FOCUS_MINS
 from session.timer import PomodoroState
 from state import GlobalState
 
 logger = logging.getLogger(__name__)
 
-# The Grove Thumb Joystick is an analog device that outputs analog signal ranging from 0 to 1023
-# The X and Y axes are two ~10k potentiometers and a momentary push button which shorts the x axis
-
-PIN_JOYSTICK_X = 0
-PIN_JOYSTICK_Y = 1
-
-with i2c_lock:
-    grovepi.pinMode(PIN_JOYSTICK_X, "INPUT")
-    grovepi.pinMode(PIN_JOYSTICK_Y, "INPUT")
-
-# Pos X to the right, pos Y up, with text on back upright.
-# The joystick defines its own zones, so there is no calibration for deadzones.
-# I.e. the X value is usually around 256, 512, 768, 1023.
-# There are very small areas to have variability, so there is little in fine control.
-# It is easy when selecting one direction to affect the other axis greatly, but not all the way to max/min.
-
-# My values:
-#    Min      Typ      Max      Click
-# X  254-256  513-514  767-768  1023
-# Y  251-252  511      773-774  <input>
+grovepi.pinMode(PIN_JOYSTICK_X, "INPUT")
+grovepi.pinMode(PIN_JOYSTICK_Y, "INPUT")
 
 
-# F5 — Pomodoro Timer + LCD/Joystick UI
-# Files: pi/session/timer.py, pi/feedback/display.py
-# Timer states: idle → running → break → paused → idle
+# ── joystick zone thresholds (LOOSENED) ────────────────────────────────────
+# Idle: X ≈ 513, Y ≈ 511.  Full deflection: ~250 (down/left) and ~770 (up/right).
+# Click pulls X to ~1023.  The wide neutral band (350..700 each axis) absorbs
+# both quiescent noise and modest mis-pushes; the tightened click threshold
+# (>= 1000) leaves a safe gap above the maximum directional reading.
+_CLICK_X_MIN  = 1000
+_LEFT_X_MAX   = 350
+_RIGHT_X_MIN  = 700
+_UP_Y_MAX     = 350
+_DOWN_Y_MIN   = 700
 
-# Default: 25 min focus / 5 min break, configurable via joystick settings screen
-# Buzzer sounds at session/break end
-# Break mode disables F2/F3 detection (phone use permitted)
-# Timer state persists across reboots (written to JSON on every state change)
+_REPEAT_COOLDOWN_S      = 0.35    # min interval between repeated direction fires
+_POST_CLICK_LOCKOUT_S   = 0.40    # ignore direction zones for this long after a click
 
-# LCD screens (joystick up/down to navigate, left/right to adjust, press to confirm):
+# Adjustable focus / break minute range
+_MIN_DURATION_MIN = 1
+_MAX_DURATION_MIN = 60
 
-# Screen     Displays
-# Home       Countdown timer, current state (FOCUS / BREAK / IDLE)
-# Stats      Today's session count, distraction count
-# Streak     Current streak in days
-# Settings   Focus duration, break duration, alert sensitivity, mantra text
-# Break      Break countdown, "Phone OK" message
+
+def _step_decrease(cur: int) -> int:
+    """5-min steps above 10, 1-min steps below — finer control near the minimum."""
+    if cur > 10: return cur - 5
+    if cur > _MIN_DURATION_MIN: return cur - 1
+    return _MIN_DURATION_MIN
+
+
+def _step_increase(cur: int) -> int:
+    """1-min steps below 10, 5-min steps above — fast traversal of normal Pomodoro values."""
+    if cur < 10: return cur + 1
+    return min(_MAX_DURATION_MIN, cur + 5)
+
 
 class Menu(Enum):
-    HOME = "home"
-    # STATS = "stats"
-    # STREAK = "streak"
-    FOCUS_SETTING = "focus_setting"
-    BREAK_SETTING = "break_setting"
+    HOME               = "home"
+    FOCUS_SETTING      = "focus_setting"
+    BREAK_SETTING      = "break_setting"
+    ALERT_MODE_SETTING = "alert_mode_setting"
 
 
 class Display:
-    MENU_ORDER = [Menu.HOME, Menu.FOCUS_SETTING, Menu.BREAK_SETTING]
+    MENU_ORDER = [Menu.HOME, Menu.FOCUS_SETTING, Menu.BREAK_SETTING, Menu.ALERT_MODE_SETTING]
 
     def __init__(self, global_state: GlobalState, state_lock: threading.RLock) -> None:
         setRGB(50, 50, 50)
         time.sleep(0.5)
 
-        self._state = global_state
+        self._state      = global_state
         self._state_lock = state_lock
 
-        self._clicked = False
-        self._handled_movement = None
+        # Joystick debounce state
+        self._pending_zone:        str   = "neutral"
+        self._current_zone:        str   = "neutral"
+        self._last_action_t:       float = 0.0
+        self._post_click_until:    float = 0.0     # monotonic timestamp
 
         self._current_menu = Menu.HOME
         self.change_screen(Menu.HOME)
 
+    # ── joystick polling ─────────────────────────────────────────────────────
+    @staticmethod
+    def _classify(x: int, y: int) -> str:
+        if x >= _CLICK_X_MIN: return "click"
+        if x <  _LEFT_X_MAX:  return "left"
+        if x >  _RIGHT_X_MIN: return "right"
+        if y <  _UP_Y_MAX:    return "up"
+        if y >  _DOWN_Y_MIN:  return "down"
+        return "neutral"
+
     def handle_joystick_input(self) -> None:
         try:
-            with i2c_lock:
-                x = grovepi.analogRead(PIN_JOYSTICK_X)
-                y = grovepi.analogRead(PIN_JOYSTICK_Y)
+            x = grovepi.analogRead(PIN_JOYSTICK_X)
+            y = grovepi.analogRead(PIN_JOYSTICK_Y)
         except Exception:
-            print("JOYSTICK ERROR")
-            traceback.print_exc()
+            return    # transient I²C errors — skip this poll
+
+        new_zone = self._classify(x, y)
+
+        # ── debounce: zone must repeat to be confirmed ──────────────────────
+        if new_zone == self._pending_zone:
+            confirmed = new_zone
+        else:
+            self._pending_zone = new_zone
+            confirmed = self._current_zone
+
+        prev_zone = self._current_zone
+        self._current_zone = confirmed
+
+        if confirmed == "neutral":
             return
 
-        click = x >= 1020
+        now = time.monotonic()
+        is_transition = (confirmed != prev_zone)
 
-        if click and not self._clicked:
-            self._handle_click()
-        self._clicked = click
+        if confirmed == "click":
+            if is_transition:
+                self._handle_click()
+                self._last_action_t    = now
+                self._post_click_until = now + _POST_CLICK_LOCKOUT_S
+            return
 
-        if x < 300:
-            if self._handled_movement != "left":
-                self._handle_left()
-            self._handled_movement = "left"
-        elif x > 700:
-            if self._handled_movement != "right":
-                self._handle_right()
-            self._handled_movement = "right"
-        elif y < 300:
-            if self._handled_movement != "up":
-                self._handle_up()
-            self._handled_movement = "up"
-        elif y > 700:
-            if self._handled_movement != "down":
-                self._handle_down()
-            self._handled_movement = "down"
-        else:
-            self._handled_movement = None
+        # direction zone — but block during post-click lockout so click-release
+        # can't fire a phantom direction press
+        if now < self._post_click_until:
+            return
 
+        if is_transition or (now - self._last_action_t) >= _REPEAT_COOLDOWN_S:
+            handler = {
+                "left":  self._handle_left,
+                "right": self._handle_right,
+                "up":    self._handle_up,
+                "down":  self._handle_down,
+            }[confirmed]
+            handler()
+            self._last_action_t = now
+
+    # ── input handlers ───────────────────────────────────────────────────────
     def _handle_click(self) -> None:
         if self._current_menu == Menu.HOME:
             with self._state_lock:
-                if self._state.timer.state == PomodoroState.IDLE:
-                    self._state.timer.reset()
-                    self._state.timer.start_focus()
-                elif self._state.timer.state in (PomodoroState.RUNNING, PomodoroState.BREAK):
-                    self._state.timer.pause()
-                elif self._state.timer.state == PomodoroState.PAUSED:
-                    self._state.timer.resume()
+                t = self._state.timer
+                if t.state == PomodoroState.IDLE:
+                    t.reset()
+                    t.start_focus()
+                elif t.state in (PomodoroState.RUNNING, PomodoroState.BREAK):
+                    t.pause()
+                elif t.state == PomodoroState.PAUSED:
+                    t.resume()
+            self.tick()
 
     def _handle_up(self) -> None:
-        current_index = self.MENU_ORDER.index(self._current_menu)
-        new_index = (current_index - 1) % len(self.MENU_ORDER)
-        self.change_screen(self.MENU_ORDER[new_index])
+        idx = self.MENU_ORDER.index(self._current_menu)
+        self.change_screen(self.MENU_ORDER[(idx - 1) % len(self.MENU_ORDER)])
 
     def _handle_down(self) -> None:
-        current_index = self.MENU_ORDER.index(self._current_menu)
-        new_index = (current_index + 1) % len(self.MENU_ORDER)
-        self.change_screen(self.MENU_ORDER[new_index])
+        idx = self.MENU_ORDER.index(self._current_menu)
+        self.change_screen(self.MENU_ORDER[(idx + 1) % len(self.MENU_ORDER)])
 
     def _handle_left(self) -> None:
         if self._current_menu == Menu.FOCUS_SETTING:
             with self._state_lock:
-                current = self._state.timer.config.focus_duration
-                new_duration = max(5, current - 5)
-                self._state.timer.config.focus_duration = new_duration
-                self.tick()
+                cur = self._state.timer.config.focus_duration
+                self._state.timer.config.focus_duration = _step_decrease(cur)
+            self.tick()
         elif self._current_menu == Menu.BREAK_SETTING:
             with self._state_lock:
-                current = self._state.timer.config.break_duration
-                new_duration = max(5, current - 5)
-                self._state.timer.config.break_duration = new_duration
-                self.tick()
+                cur = self._state.timer.config.break_duration
+                self._state.timer.config.break_duration = _step_decrease(cur)
+            self.tick()
+        elif self._current_menu == Menu.ALERT_MODE_SETTING:
+            with self._state_lock:
+                self._state.alert_mode = "silent"
+            self.tick()
 
     def _handle_right(self) -> None:
         if self._current_menu == Menu.FOCUS_SETTING:
             with self._state_lock:
-                current = self._state.timer.config.focus_duration
-                new_duration = min(60, current + 5)
-                self._state.timer.config.focus_duration = new_duration
-                self.tick()
+                cur = self._state.timer.config.focus_duration
+                self._state.timer.config.focus_duration = _step_increase(cur)
+            self.tick()
         elif self._current_menu == Menu.BREAK_SETTING:
             with self._state_lock:
-                current = self._state.timer.config.break_duration
-                new_duration = min(60, current + 5)
-                self._state.timer.config.break_duration = new_duration
-                self.tick()
+                cur = self._state.timer.config.break_duration
+                self._state.timer.config.break_duration = _step_increase(cur)
+            self.tick()
+        elif self._current_menu == Menu.ALERT_MODE_SETTING:
+            with self._state_lock:
+                self._state.alert_mode = "loud"
+            self.tick()
 
+    # ── rendering ────────────────────────────────────────────────────────────
     def change_screen(self, screen: Menu) -> None:
         self._current_menu = screen
-        if screen == Menu.HOME:
-            self._display_home()
-        elif screen == Menu.FOCUS_SETTING:
-            self._display_focus_setting()
-        elif screen == Menu.BREAK_SETTING:
-            self._display_break_setting()
+        self.tick()
 
     def _display_home(self) -> None:
         with self._state_lock:
-            state = self._state.timer.state
-            remaining = self._state.timer.remaining_seconds()
+            t        = self._state.timer
+            state    = t.state
+            remaining = t.remaining_seconds()
 
         minutes = int(remaining) // 60
         seconds = int(remaining) % 60
@@ -192,22 +248,25 @@ class Display:
             traceback.print_exc()
 
     def _display_focus_setting(self) -> None:
-        current_duration = self._state.timer.config.focus_duration if self._state.timer else DEFAULT_FOCUS_MINS
-        setText(f"Focus time <- ->\n{current_duration} min")
+        cur = self._state.timer.config.focus_duration if self._state.timer else DEFAULT_FOCUS_MINS
+        setText(f"Focus time <- ->\n{cur} min")
 
     def _display_break_setting(self) -> None:
-        current_duration = self._state.timer.config.break_duration if self._state.timer else DEFAULT_FOCUS_MINS
-        setText(f"Break time <- ->\n{current_duration} min")
+        cur = self._state.timer.config.break_duration if self._state.timer else DEFAULT_FOCUS_MINS
+        setText(f"Break time <- ->\n{cur} min")
 
+    def _display_alert_mode_setting(self) -> None:
+        cur = self._state.alert_mode if self._state else "silent"
+        setText(f"Alerts <- ->\n{cur}")
 
     def tick(self) -> None:
-        if self._current_menu == Menu.HOME:
-            self._display_home()
-        elif self._current_menu == Menu.FOCUS_SETTING:
-            self._display_focus_setting()
-        elif self._current_menu == Menu.BREAK_SETTING:
-            self._display_break_setting()
+        if   self._current_menu == Menu.HOME:               self._display_home()
+        elif self._current_menu == Menu.FOCUS_SETTING:      self._display_focus_setting()
+        elif self._current_menu == Menu.BREAK_SETTING:      self._display_break_setting()
+        elif self._current_menu == Menu.ALERT_MODE_SETTING: self._display_alert_mode_setting()
 
+
+# ─── thread entry point ─────────────────────────────────────────────────────
 
 def menu_handling_thread(state: GlobalState, lock: threading.RLock) -> None:
     display = Display(state, lock)
@@ -216,20 +275,24 @@ def menu_handling_thread(state: GlobalState, lock: threading.RLock) -> None:
         state.display = display
 
     while True:
+        # poll joystick 10× then re-render the home screen if a session is active
         for _ in range(10):
             display.handle_joystick_input()
-            time.sleep(0.03)
+            time.sleep(0.05)             # 50 ms × 10 = 500 ms per outer cycle
 
         with lock:
             if not state.running:
-                setText("")
-                setRGB(0, 0, 0)
+                try:
+                    setText("")
+                    setRGB(0, 0, 0)
+                except Exception:
+                    pass
                 break
-
             should_tick = bool(
-                state.timer and state.timer.state in (PomodoroState.RUNNING, PomodoroState.BREAK)
+                state.timer
+                and state.timer.state in (PomodoroState.RUNNING, PomodoroState.BREAK)
             )
 
-        # Call tick outside the lock to avoid deadlocking on nested lock acquisition in _display_home.
+        # tick OUTSIDE the lock — _display_home re-acquires it
         if should_tick:
             display.tick()
